@@ -1,0 +1,7 @@
+sfvenv/
+socialforces/
+warpsf/
+*.pyc
+*.png
+*.pdb
+.vscode/
