@@ -1,6 +1,27 @@
 import numpy as np
 from pxr import UsdGeom, Gf, Usd
 
+
+def get_mesh(usd_stage):
+    
+    objs = [
+        '/World/Plane',
+     '/World/Plane_01',
+      '/World/Plane_02','/World/Plane_03','/World/Plane_04',
+    '/World/Plane_05','/World/Plane_06', '/World/Plane_07','/World/Plane_08','/World/Plane_09',
+    '/World/Cylinder'
+    ]
+
+    points, faces = [],[]
+
+    for obj in objs:
+        f_offset = len(points)
+        f, p = convert_to_mesh(usd_stage.GetPrimAtPath(obj))
+        points.extend(p)
+        faces.extend(f+f_offset)
+
+    return points, faces
+
 def convert_to_mesh(prim):
     ''' convert a prim to BVH '''
 

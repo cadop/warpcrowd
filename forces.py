@@ -1,18 +1,52 @@
-from dataclasses import dataclass
-import numpy as np
-from scipy.spatial import distance
 import warp as wp
 
-Tau = wp.constant(0.5)
-A = wp.constant(2000.0)
-B = wp.constant(0.08)
-kn = wp.constant(1.2 * 100000)
-kt = wp.constant(2.4 * 100000)
+Tau = wp.constant(0.5) # s (acceleration)
+A = wp.constant(2000.0) # N
+B = wp.constant(0.08) # m
+kn = wp.constant(1.2 * 100000) # kg/s^-2
+kt = wp.constant(2.4 * 100000) # kg/m^-1 s^-2
 
-max_speed = wp.constant(100.0)
+max_speed = wp.constant(10.0) # m/s
+v_desired = wp.constant(2.5) # m/s
 
-v_desired = wp.constant(2.5)
 
+@wp.kernel
+def get_forces(positions: wp.array(dtype=wp.vec3),
+                velocities: wp.array(dtype=wp.vec3),
+                goals: wp.array(dtype=wp.vec3),
+                radius: wp.array(dtype=float),
+                mass: wp.array(dtype=float),
+                dt: float,
+                pn : float,
+                grid : wp.uint64,
+                mesh: wp.uint64,
+                forces: wp.array(dtype=wp.vec3),
+                ):
+
+    # thread index
+    tid = wp.tid()
+
+    cur_pos = positions[tid]
+    cur_rad = radius[tid]
+    cur_vel = velocities[tid]
+    cur_mass = mass[tid]
+    goal = goals[tid]
+
+    _force = compute_force(cur_pos,
+                                cur_rad, 
+                                cur_vel, 
+                                cur_mass, 
+                                goal, 
+                                positions, # TODO add back perception-specific values
+                                velocities, # TODO add back perception-specific values
+                                radius, # TODO add back perception-specific values
+                                dt,
+                                pn, 
+                                grid,
+                                mesh)
+
+    # compute distance of each point from origin
+    forces[tid] = _force
 
 @wp.kernel
 def integrate(x : wp.array(dtype=wp.vec3),
@@ -52,10 +86,11 @@ def calc_wall_force(rr_i: wp.vec3,
     face_v = float(0.0)
     sign = float(0.0)
 
+    force = wp.vec3(0.0,0.0,0.0)
     # Define the up direction 
     up_dir = wp.vec3(0.0, 0.0, 1.0)
 
-    max_dist = float(ri * 100.0)
+    max_dist = float(ri * 5.0)
 
     has_point = wp.mesh_query_point(mesh, rr_i, max_dist, sign, face_index, face_u, face_v)
 
@@ -75,12 +110,13 @@ def calc_wall_force(rr_i: wp.vec3,
         tt_iw = -1.0 * tt_iw
 
     # Compute force
-    #  (A * exp[(ri-diw)/B] + kn*g(ri-diw))*niw - kt * g(ri-diw)(vi * tiw)tiw
-    f1 = (A * wp.exp((ri-d_iw)/B) ) + kn
-    force = ( f1 * G(ri,d_iw)*nn_iw) - ((kt*G(ri,d_iw)) * wp.dot(vv_i,tt_iw) * tt_iw)
+    #  f_iW = { A * exp[(ri-diw)/B] + kn*g(ri-diw) } * niw 
+    #   - kt * g(ri-diw)(vi * tiw)tiw
+    f_rep = ( A * wp.exp((ri-d_iw)/B) + kn * G(ri, d_iw) ) * nn_iw 
+    f_tan = kt * G(ri,d_iw) * wp.dot(vv_i, tt_iw) * tt_iw
+    force = f_rep - f_tan
 
-    return force
-
+    return force 
 
 @wp.func
 def calc_agent_force(rr_i: wp.vec3, 
@@ -92,39 +128,28 @@ def calc_agent_force(rr_i: wp.vec3,
                      pn: float,
                      grid : wp.uint64,
                      ):
-
-    #  Sum the forces of neighboring agents 
-    force = wp.vec3(0.0, 0.0, 0.0)
+    '''Sum the forces of neighboring agents'''
 
     #  Set the total force of the other agents to zero
+    force = wp.vec3(0.0, 0.0, 0.0)
     ff_ij = wp.vec3(0.0, 0.0, 0.0)
-
     rr_j = wp.vec3(0.0, 0.0, 0.0)
-
-    # rj = 0.0
-
-    #  Iterate through the neighbors and sum (f_ij)
-    # for j in range(5):
 
     # create grid query around point
     query = wp.hash_grid_query(grid, rr_i, pn)
     index = int(0)
 
+    #  Iterate through the neighbors and sum (f_ij)
     while(wp.hash_grid_query_next(query, index)):
-        
         j = index
-
         neighbor = pn_rr[j]
 
         # compute distance to neighbor point
         dist = wp.length(rr_i-neighbor)
         if (dist <= pn):
-            
-            rr_j = pn_rr[j]
-
             #  Get position and velocity of neighbor agent
+            rr_j = pn_rr[j]
             vv_j = pn_vv[j]
-
             #  Get radii of neighbor agent
             rj = pn_r[j]
 
@@ -152,12 +177,9 @@ def agent_force(rr_i: wp.vec3,
                 rr_j: wp.vec3, 
                 rj: float, 
                 vv_j: wp.vec3):
-    # (Vector3 rr_i, float ri, Vector3 vv_i, Vector3 rr_j, float rj, Vector3 vv_j)
+    '''Calculate the force exerted by another agent.
+    Take in this agent (i) and a neighbors (j) position and radius'''
 
-    #  Calculate the force exerted by another agent
-    #  Take in this agent (i) and a neighbors (j) position and radius
-
-    #  Calculate rij - dij
     #  Sum of radii
     rij = ri + rj
     #  distance between center of mass
@@ -169,10 +191,10 @@ def agent_force(rr_i: wp.vec3,
     #  t_ij "Vector of tangential relative velocity pointing from i to j." 
     #  A sliding force is applied on agent i in this direction to reduce the relative velocity.
     t_ij = vv_j - vv_i
-    deltaV = wp.dot(vv_j - vv_i, t_ij)
+    dv_ji = wp.dot(vv_j - vv_i, t_ij)
 
     #  Calculate f_ij
-    force = ( ( proximity(rij, d_ij) + repulsion(rij, d_ij) ) * n_ij ) +  sliding(rij, d_ij, deltaV, t_ij)
+    force =  repulsion(rij, d_ij, n_ij) + proximity(rij, d_ij, n_ij) + sliding(rij, d_ij, dv_ji, t_ij)
 
     return force
 
@@ -199,24 +221,25 @@ def G(r_ij: float,
     return r_ij - d_ij
 
 @wp.func
-def proximity(r_ij: float, 
-             d_ij: float):
-    force = A * wp.exp( (r_ij - d_ij) / B)
+def repulsion(r_ij: float, 
+              d_ij: float,
+              n_ij: wp.vec3):
+    force = A * wp.exp( (r_ij - d_ij) / B) * n_ij
     return force
 
 @wp.func
-def repulsion(r_ij: float, 
-              d_ij: float
-              ):
-    force = kn * G(r_ij, d_ij)
+def proximity(r_ij: float, 
+              d_ij: float,
+              n_ij: wp.vec3):
+    force = (kn * G(r_ij, d_ij)) * n_ij # body force
     return force 
 
 @wp.func
 def sliding(r_ij: float, 
             d_ij: float, 
-            deltaVelocity: float, 
+            dv_ji: float, 
             t_ij: wp.vec3):
-    force = kt * G(r_ij, d_ij) * (deltaVelocity * t_ij)
+    force = kt * G(r_ij, d_ij) * (dv_ji * t_ij)
     return force
 
 @wp.func
@@ -234,7 +257,6 @@ def compute_force(rr_i: wp.vec3,
                     mesh: wp.uint64
                     ):
     ''' 
-    # agent is a position
     rr_i : position
     ri : radius
     vv_i : velocity
@@ -246,10 +268,12 @@ def compute_force(rr_i: wp.vec3,
     # Get the force for this agent to the goal
     goal = calc_goal_force(goal, rr_i, vv_i, mass, v_desired, dt)
     agent = calc_agent_force(rr_i, ri, vv_i, pn_rr, pn_vv, pn_r, pn, grid)
-
     wall = calc_wall_force(rr_i, ri, vv_i, mesh)
-
+    # Sum of forces
     force = goal + agent + wall
+
+    # Clear any vertical forces
+    force = wp.cw_mul(force, wp.vec3(1.0,1.0,0.0)) # Element-wise mul
 
     force = wp.normalize(force) * wp.min(wp.length(force), max_speed)
 
