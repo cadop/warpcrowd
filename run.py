@@ -50,7 +50,6 @@ def run():
 
     agents_vel = np.asarray([np.array([0,0,0]) for x in range(nagents)])
     agents_radi = np.random.uniform(radius_min, radius_max, nagents)
-    # agents_radi = np.asarray([radius for x in range(nagents)])
     agents_mass = [mass for x in range(nagents)]
     agents_percept = np.asarray([perception_radius for x in range(nagents)])
     agents_goal = np.asarray([np.array(goal, dtype=float) for x in range(nagents)])
