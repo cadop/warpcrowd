@@ -17,7 +17,7 @@ def get_forces(positions: wp.array(dtype=wp.vec3),
                 radius: wp.array(dtype=float),
                 mass: wp.array(dtype=float),
                 dt: float,
-                pn : float,
+                percept : wp.array(dtype=float),
                 grid : wp.uint64,
                 mesh: wp.uint64,
                 forces: wp.array(dtype=wp.vec3),
@@ -31,17 +31,18 @@ def get_forces(positions: wp.array(dtype=wp.vec3),
     cur_vel = velocities[tid]
     cur_mass = mass[tid]
     goal = goals[tid]
+    pn = percept[tid]
 
     _force = compute_force(cur_pos,
-                                cur_rad, 
-                                cur_vel, 
-                                cur_mass, 
-                                goal, 
-                                positions, # TODO add back perception-specific values
-                                velocities, # TODO add back perception-specific values
-                                radius, # TODO add back perception-specific values
+                                cur_rad,
+                                cur_vel,
+                                cur_mass,
+                                goal,
+                                positions,
+                                velocities,
+                                radius,
                                 dt,
-                                pn, 
+                                pn,
                                 grid,
                                 mesh)
 
@@ -129,6 +130,8 @@ def calc_wall_force(rr_i: wp.vec3,
     force = f_rep - f_tan
 
     return force 
+
+
 
 @wp.func
 def calc_agent_force(rr_i: wp.vec3, 

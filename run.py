@@ -21,7 +21,9 @@ def run():
     # generate n number of agents
     nagents = 9
     # set radius
-    radius = 1
+    radius = 0.7
+    radius_min = 0.5
+    radius_max = 1.0
     # set mass
     mass = 80
     # set pereption radius
@@ -47,7 +49,8 @@ def run():
     agents_pos = np.asarray(pos, dtype=np.float64)
 
     agents_vel = np.asarray([np.array([0,0,0]) for x in range(nagents)])
-    agents_radi = np.asarray([radius for x in range(nagents)])
+    agents_radi = np.random.uniform(radius_min, radius_max, nagents)
+    # agents_radi = np.asarray([radius for x in range(nagents)])
     agents_mass = [mass for x in range(nagents)]
     agents_percept = np.asarray([perception_radius for x in range(nagents)])
     agents_goal = np.asarray([np.array(goal, dtype=float) for x in range(nagents)])
@@ -55,12 +58,12 @@ def run():
     dt = 1.0/30.0
 
     agent_force = wp.zeros(shape=nagents,device=device, dtype=wp.vec3)
-
     agents_pos = wp.array(agents_pos, device=device, dtype=wp.vec3)
     agents_vel = wp.array(agents_vel, device=device, dtype=wp.vec3)
     agents_goal = wp.array(agents_goal, device=device, dtype=wp.vec3)
     agents_radi = wp.array(agents_radi, device=device, dtype=float)
     agents_mass = wp.array(agents_mass, device=device, dtype=float)
+    agents_percept = wp.array(agents_percept, device=device, dtype=float)
 
     xnew = wp.zeros_like(agents_pos)
     vnew = wp.zeros_like(agents_pos)
@@ -92,7 +95,7 @@ def run():
         wp.launch(kernel=sf.get_forces,
                 dim=nagents,
                 inputs=[agents_pos, agents_vel, agents_goal, agents_radi, 
-                        agents_mass, dt, perception_radius, grid.id, mesh.id],
+                        agents_mass, dt, agents_percept, grid.id, mesh.id],
                 outputs=[agent_force],
                 device=device
                 )
