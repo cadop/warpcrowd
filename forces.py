@@ -70,6 +70,18 @@ def integrate(x : wp.array(dtype=wp.vec3),
     vnew[tid] = v1
 
 @wp.func
+def calc_goal_force(goal: wp.vec3, 
+                    pos: wp.vec3, 
+                    vel: wp.vec3, 
+                    mass: float, 
+                    v_desired: float, 
+                    dt: float):
+    ee_i = wp.normalize(goal - pos)
+    force = mass * ( ( (v_desired * ee_i) - vel ) / (Tau) )
+
+    return force 
+
+@wp.func
 def calc_wall_force(rr_i: wp.vec3,
                     ri: float,
                     vv_i: wp.vec3,
@@ -154,7 +166,7 @@ def calc_agent_force(rr_i: wp.vec3,
             rj = pn_r[j]
 
             #  Pass agent position to AgentForce calculation
-            ff_ij = agent_force(rr_i, ri, vv_i, rr_j, rj, vv_j)
+            ff_ij = neighbor_force(rr_i, ri, vv_i, rr_j, rj, vv_j)
 
             #  Sum Forces
             force += ff_ij
@@ -162,16 +174,7 @@ def calc_agent_force(rr_i: wp.vec3,
     return force
 
 @wp.func
-def calc_goal_force(goal: wp.vec3, 
-                    pos: wp.vec3, 
-                    vel: wp.vec3, 
-                    mass: float, 
-                    v_desired: float, 
-                    dt: float):
-    return goal_force(goal, pos, vel, mass, v_desired, dt)
-
-@wp.func
-def agent_force(rr_i: wp.vec3, 
+def neighbor_force(rr_i: wp.vec3, 
                 ri: float, 
                 vv_i: wp.vec3, 
                 rr_j: wp.vec3, 
@@ -197,19 +200,6 @@ def agent_force(rr_i: wp.vec3,
     force =  repulsion(rij, d_ij, n_ij) + proximity(rij, d_ij, n_ij) + sliding(rij, d_ij, dv_ji, t_ij)
 
     return force
-
-@wp.func
-def goal_force(goal: wp.vec3, 
-                i_xyz: wp.vec3, 
-                v_i: wp.vec3, 
-                m_i: float, 
-                v_desired: float, 
-                dt: float):
-
-    ee_i = wp.normalize(goal - i_xyz)
-    force = m_i * ( ( (v_desired * ee_i) - v_i ) / (dt) ) #  alt is to replace dt with  Parameters.T 
-
-    return force 
 
 @wp.func
 def G(r_ij: float, 
