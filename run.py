@@ -1,10 +1,10 @@
+import os
+import time
 import warp as wp
 import numpy as np
-import time
-import forces as sf
-import os
-from pxr import Usd, UsdGeom, Sdf, Gf, UsdLux
+from pxr import Usd
 
+import forces as sf
 import usd_utils
 
 # wp.config.mode = "debug"
@@ -125,6 +125,5 @@ def render(is_live, renderer, mesh, positions, sim_margin, sim_time, dt):
 
     sim_time += dt
     return sim_time
-
 
 run()
