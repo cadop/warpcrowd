@@ -131,8 +131,6 @@ def calc_wall_force(rr_i: wp.vec3,
 
     return force 
 
-
-
 @wp.func
 def calc_agent_force(rr_i: wp.vec3, 
                      ri: float, 
@@ -264,9 +262,6 @@ def compute_force(rr_i: wp.vec3,
     wall = calc_wall_force(rr_i, ri, vv_i, mesh)
     # Sum of forces
     force = goal + agent + wall
-
-    # Clear any vertical forces
-    force = wp.cw_mul(force, wp.vec3(1.0,1.0,0.0)) # Element-wise mul
 
     force = wp.normalize(force) * wp.min(wp.length(force), max_speed)
 
