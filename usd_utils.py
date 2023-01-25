@@ -1,6 +1,6 @@
 import numpy as np
 from pxr import UsdGeom, Gf, Usd
-
+from . import mesh_utils
 
 def get_mesh(usd_stage, objs):
     
@@ -51,24 +51,8 @@ def convert_to_mesh(prim):
     # Check if the face counts are 4, if so, reshape and turn to triangles
     if tris_cnt[0] == 4:
         quad_list = tri_list.reshape(-1,4)
-        tri_list = quad_to_tri(quad_list)
+        tri_list = mesh_utils.quad_to_tri(quad_list)
         tri_list = tri_list.flatten()
 
     return tri_list, vert_list
 
-def quad_to_tri(a):
-    idx = np.flatnonzero(a[:,-1] == 0)
-    out0 = np.empty((a.shape[0],2,3),dtype=a.dtype)      
-
-    out0[:,0,1:] = a[:,1:-1]
-    out0[:,1,1:] = a[:,2:]
-
-    out0[...,0] = a[:,0,None]
-
-    out0.shape = (-1,3)
-
-    mask = np.ones(out0.shape[0],dtype=bool)
-    mask[idx*2+1] = 0
-    return out0[mask]
-
-    
