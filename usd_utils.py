@@ -2,16 +2,8 @@ import numpy as np
 from pxr import UsdGeom, Gf, Usd
 
 
-def get_mesh(usd_stage):
+def get_mesh(usd_stage, objs):
     
-    objs = [
-        '/World/Plane',
-     '/World/Plane_01',
-      '/World/Plane_02','/World/Plane_03','/World/Plane_04',
-    '/World/Plane_05','/World/Plane_06', '/World/Plane_07','/World/Plane_08','/World/Plane_09',
-    '/World/Cylinder'
-    ]
-
     points, faces = [],[]
 
     for obj in objs:
@@ -43,13 +35,8 @@ def convert_to_mesh(prim):
     world_transform: Gf.Matrix4d = xform.ComputeLocalToWorldTransform(time)
     translation: Gf.Vec3d = world_transform.ExtractTranslation()
     rotation: Gf.Rotation = world_transform.ExtractRotationMatrix()
-    # rotation: Gf.Rotation = world_transform.ExtractRotation()
     scale: Gf.Vec3d = Gf.Vec3d(*(v.GetLength() for v in world_transform.ExtractRotationMatrix()))
 
-    # world_transform: Gf.Matrix4d = UsdGeom.XformCache.GetLocalToWorldTransform(prim)
-    # rotmat = world_transform.ExtractRotationMatrix()
-    # trans = world_transform.ExtractTranslation()
-    
     vert_rotated = np.dot(vert_list, rotation) # Rotate points
 
     vert_translated = vert_rotated + translation
@@ -60,7 +47,6 @@ def convert_to_mesh(prim):
     vert_scaled[:,2] *= scale[2]
 
     vert_list = vert_scaled
-    # vert_list = vert_scaled.flatten()
 
     # Check if the face counts are 4, if so, reshape and turn to triangles
     if tris_cnt[0] == 4:
@@ -84,3 +70,5 @@ def quad_to_tri(a):
     mask = np.ones(out0.shape[0],dtype=bool)
     mask[idx*2+1] = 0
     return out0[mask]
+
+    
