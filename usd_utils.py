@@ -1,5 +1,4 @@
 import numpy as np
-from pxr import UsdGeom, Gf, Usd
 from . import mesh_utils
 
 def get_mesh(usd_stage, objs):
@@ -15,7 +14,22 @@ def get_mesh(usd_stage, objs):
     return points, faces
 
 def convert_to_mesh(prim):
-    ''' convert a prim to BVH '''
+    '''Coverts a usd prim to a mesh
+    Imports pxr UsdGeom, Gf, Usd which should only need to exist if user uses
+    usd_utils
+
+    Parameters
+    ----------
+    prim : UsdPrim
+        _description_
+
+    Returns
+    -------
+    (faces, vertices)
+        list of faces and vertices for that mesh in world space
+    '''
+
+    from pxr import UsdGeom, Gf, Usd
 
     # Get mesh name (prim name)
     m = UsdGeom.Mesh(prim)
