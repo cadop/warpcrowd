@@ -48,7 +48,7 @@ class WarpCrowd():
         self.agents_goal = np.asarray([np.array(self.goal, dtype=float) for x in range(self.nagents)])
 
         self.xnew = np.zeros_like(self.agents_pos)
-        self.vnew = np.zeros_like(self.agents_pos)
+        self.vnew = np.zeros_like(self.agents_pos) 
 
     def params_to_warp(self):
         '''Convert all parameters to warp
