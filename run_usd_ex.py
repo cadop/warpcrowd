@@ -55,5 +55,3 @@ def render(is_live, renderer, mesh, positions, sim_margin, sim_time, dt):
     return sim_time
 
 run_class()
-
-# run()
