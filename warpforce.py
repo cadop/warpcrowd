@@ -10,7 +10,7 @@ class WarpCrowd():
         self.device = 'cuda'
 
         # generate n number of agents
-        self.nagents = 9
+        self.nagents = None
         # set radius
         self.radius = 0.7
         self.radius_min = 0.5
@@ -20,16 +20,13 @@ class WarpCrowd():
         self.mass = 80
         # set pereption radius
         self.perception_radius = 6
+
         self.dt = 1.0/30.0
 
         self.goal = [0.0,0.0,0.0]
 
         self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
         self.inv_up_vector[2] = 0.0 # z-up
-
-        self.demo_agents()
-        self.configure_params()
-        self.params_to_warp()
 
     def demo_agents(self, s=1.1, m=50, n=50):
         # Initialize agents in a grid for testing
@@ -39,8 +36,14 @@ class WarpCrowd():
                                       for y in range(n)
                                     ])
         self.nagents = len(self.agents_pos)
+        self.configure_params()
 
     def configure_params(self):
+        '''Convert all parameters to warp
+
+        Should be called only after number of agents have been defined
+        '''
+
         self.agents_pos = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_vel = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_radi = np.random.uniform(self.radius_min, self.radius_max, self.nagents)
@@ -51,9 +54,6 @@ class WarpCrowd():
         self.xnew = np.zeros_like(self.agents_pos)
         self.vnew = np.zeros_like(self.agents_vel) 
 
-    def params_to_warp(self):
-        '''Convert all parameters to warp
-        '''
         self.agent_force_wp = wp.zeros(shape=self.nagents,device=self.device, dtype=wp.vec3)
         self.agents_pos_wp = wp.array(self.agents_pos, device=self.device, dtype=wp.vec3)
         self.agents_vel_wp = wp.array(self.agents_vel, device=self.device, dtype=wp.vec3)
@@ -65,7 +65,7 @@ class WarpCrowd():
         self.xnew_wp = wp.zeros_like(wp.array(self.xnew, device=self.device, dtype=wp.vec3))
         self.vnew_wp = wp.zeros_like(wp.array(self.vnew, device=self.device, dtype=wp.vec3))
 
-    def config_hasgrid(self, nagents=None):
+    def config_hashgrid(self, nagents=None):
         '''Create a hash grid based on the number of agents
             Currently assumes z up
 
@@ -94,8 +94,10 @@ class WarpCrowd():
                             )
 
     def update_goals(self, goal):
-
-        self.agents_goal = np.asarray([np.array(goal, dtype=float) for x in range(self.nagents)])
+        if len(goal) == 1:
+            self.agents_goal = np.asarray([np.array(goal[0], dtype=float) for x in range(self.nagents)])
+        else:
+            self.agents_goal = goal
         self.agents_goal_wp = wp.array(self.agents_goal, device=self.device, dtype=wp.vec3)
 
     def compute_step(self):
