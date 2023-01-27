@@ -20,7 +20,6 @@ def run_class():
 
     wc = WarpCrowd()
     wc.config_hasgrid()
-    wc.demo_agents()
     wc.update_goals([-30.8,0.01582,0.0])
 
     # USD Scene stuff
