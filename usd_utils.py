@@ -1,5 +1,5 @@
 import numpy as np
-from . import mesh_utils
+import mesh_utils
 
 def get_mesh(usd_stage, objs):
     
