@@ -24,9 +24,10 @@ class WarpCrowd():
 
         self.goal = [0.0,0.0,0.0]
 
-        self.inv_up_vector = wp.vec3(1.0,1.0,0.0) # z-up
+        self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
+        self.inv_up_vector[2] = 0.0 # z-up
 
-        # self.demo_agents()
+        self.demo_agents()
         self.configure_params()
         self.params_to_warp()
 
@@ -48,7 +49,7 @@ class WarpCrowd():
         self.agents_goal = np.asarray([np.array(self.goal, dtype=float) for x in range(self.nagents)])
 
         self.xnew = np.zeros_like(self.agents_pos)
-        self.vnew = np.zeros_like(self.agents_pos) 
+        self.vnew = np.zeros_like(self.agents_vel) 
 
     def params_to_warp(self):
         '''Convert all parameters to warp
@@ -75,7 +76,7 @@ class WarpCrowd():
         '''
 
         if nagents is None: nagents = self.nagents
-        self.grid = wp.HashGrid(dim_x=nagents, dim_y=nagents, dim_z=1, device=self.device)
+        self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=self.nagents, dim_z=1, device=self.device)
 
     def config_mesh(self, points, faces):
         '''Create a warp mesh object from points and faces
@@ -105,13 +106,11 @@ class WarpCrowd():
         wp.launch(kernel=crowd_force.get_forces,
                 dim=self.nagents,
                 inputs=[self.agents_pos_wp, self.agents_vel_wp, self.agents_goal_wp, self.agents_radi_wp, 
-                        self.agents_mass_wp, self.dt, self.agents_percept_wp, self.grid.id, self.mesh.id],
+                        self.agents_mass_wp, self.dt, self.agents_percept_wp, self.grid.id, self.mesh.id,
+                        self.inv_up_vector],
                 outputs=[self.agent_force_wp],
                 device=self.device
                 )
-
-        # Clear any vertical forces with Element-wise mul
-        self.agent_force_wp = wp.cw_mul(self.agent_force_wp, self.inv_up_vector) 
 
         # Given the forces, integrate for pos and vel
         wp.launch(kernel=crowd_force.integrate,
@@ -123,5 +122,3 @@ class WarpCrowd():
     
         self.agents_pos_wp = self.xnew_wp
         self.agents_vel_wp = self.vnew_wp
-
-        return self.agent_force_wp
