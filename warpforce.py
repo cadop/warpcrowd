@@ -6,8 +6,8 @@ import forces as crowd_force
 
 class WarpCrowd():
     
-    def __init__(self):
-        self.device = 'cuda'
+    def __init__(self, device='cuda'):
+        self.device = device
 
         # generate n number of agents
         self.nagents = None
