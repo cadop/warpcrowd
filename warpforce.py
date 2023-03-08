@@ -115,6 +115,42 @@ class WarpCrowd():
         # Rebuild hashgrid given new positions
         self.grid.build(points=self.agents_pos_wp, radius=self.hash_radius)
 
+        self.model_sf()
+        # self.model_pam()
+
+    def model_sf(self):
+        # launch kernel
+        wp.launch(kernel=crowd_force.get_forces,
+                dim=self.nagents,
+                inputs=[self.agents_pos_wp, self.agents_vel_wp, self.agents_goal_wp, self.agents_radi_wp, 
+                        self.agents_mass_wp, self.dt, self.agents_percept_wp, self.grid.id, self.mesh.id,
+                        self.inv_up_vector],
+                outputs=[self.agent_force_wp],
+                device=self.device
+                )
+
+        # Given the forces, integrate for pos and vel
+        wp.launch(kernel=crowd_force.integrate,
+                dim=self.nagents,
+                inputs=[self.agents_pos_wp, self.agents_vel_wp, self.agent_force_wp, self.dt],
+                outputs=[self.xnew_wp, self.vnew_wp],
+                device=self.device
+                )
+    
+        self.agents_pos_wp = self.xnew_wp
+        self.agents_vel_wp = self.vnew_wp
+
+        wp.launch(kernel=crowd_force.heading,
+                dim=self.nagents,
+                inputs=[self.agents_vel_wp, self.up_vec, self.forward_vec],
+                outputs=[self.hdir_wp],
+                device=self.device
+                )
+
+        self.agents_hdir_wp = self.hdir_wp
+
+
+    def model_pam(self):
         # launch kernel
         wp.launch(kernel=crowd_force.get_forces,
                 dim=self.nagents,
