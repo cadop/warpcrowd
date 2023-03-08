@@ -115,8 +115,8 @@ class WarpCrowd():
         # Rebuild hashgrid given new positions
         self.grid.build(points=self.agents_pos_wp, radius=self.hash_radius)
 
-        self.model_sf()
-        # self.model_pam()
+        # self.model_sf()
+        self.model_pam()
 
     def model_sf(self):
         # launch kernel
@@ -151,8 +151,9 @@ class WarpCrowd():
 
 
     def model_pam(self):
+
         # launch kernel
-        wp.launch(kernel=crowd_force.get_forces,
+        wp.launch(kernel=pam_force.get_forces,
                 dim=self.nagents,
                 inputs=[self.agents_pos_wp, self.agents_vel_wp, self.agents_goal_wp, self.agents_radi_wp, 
                         self.agents_mass_wp, self.dt, self.agents_percept_wp, self.grid.id, self.mesh.id,

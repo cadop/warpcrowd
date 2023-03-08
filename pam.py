@@ -8,75 +8,138 @@
 from dataclasses import dataclass
 import numpy as np
 from scipy.spatial import distance
+import warp as wp
 
-@dataclass
-class Parameters:
+# @TODO move to wp.struct
 
-    # The agents field of view
-    field_of_view = 200.0
-    # The agents radius ? Used here in this implementation or in sim?
-    agent_radius = 0.5
-    # Minimum agent distance
-    min_agent_dist = 0.1
-    # the mid distance parameters in peicewise personal space function predictive force dist
-    dmid = 4.0
-    # KSI  
-    ksi = 0.5
-    # Nearest Neighbour distance ? Used here in this implementation or in sim?
-    neighbor_dist = 10.0
-    # Maximum neighbours to consider ? Used here in this implementation or in sim?
-    max_neighbors = 3
-    # Maximum acceleration ? Used here in this implementation or in sim/physics?
-    max_accel = 20.0
-    # Maximum speed
-    max_speed = 7
-    # Preferred Speed
-    preferred_vel = 2.5
-    # Goal acquired radius 
-    goal_radius = 1.0
-    # Time Horizon
-    time_horizon = 4.0
-    # Agent Distance
-    agent_dist = 0.1
-    # Wall Distance
-    wall_dist = 0.1
-    # Wall Steepnes
-    wall_steepness = 2.0
-    # Agent Strength
-    agent_strength = 1.0
-    # wFactor, factor to progressively scale down forces in when in a non-collision state
-    w_factor = 0.8
-    # Noise flag (should noise be added to the movement action)
-    noise = False 
-    force_clamp = 40.0
-    
-    # *private* Ideal wall distance
-    _ideal_wall_dist = agent_radius + wall_dist
-    # *private* Squared ideal wall distance
-    _SAFE = _ideal_wall_dist * _ideal_wall_dist
-    # *private* Agent Personal space
-    _agent_personal_space = agent_radius + min_agent_dist
-    # *private* the min distance parameters in peicewise personal space function
-    _dmin = agent_radius + _agent_personal_space
-    # *private* the max distance parameters in peicewise personal space function
-    _dmax = time_horizon * max_speed
-    # *private* FOV cosine
-    _cosFOV = np.cos((0.5 * np.pi * field_of_view) / 180.0)
-    
-def ray_intersects_disc(pi, 
-                        pj, 
-                        v, 
-                        r):
+# The agents field of view
+field_of_view = wp.constant( 200.0)
+# The agents radius ? Used here in this implementation or in sim?
+agent_radius = wp.constant( 0.5)
+# Minimum agent distance
+min_agent_dist = wp.constant( 0.1)
+# the mid distance parameters in peicewise personal space function predictive force dist
+dmid = wp.constant( 4.0)
+# KSI  
+ksi = wp.constant( 0.5)
+# Nearest Neighbour distance ? Used here in this implementation or in sim?
+neighbor_dist = wp.constant( 10.0)
+# Maximum neighbours to consider ? Used here in this implementation or in sim?
+max_neighbors = wp.constant( 3)
+# Maximum acceleration ? Used here in this implementation or in sim/physics?
+max_accel = wp.constant( 20.0)
+# Maximum speed
+max_speed = wp.constant( 7)
+# Preferred Speed
+preferred_speed = wp.constant( 2.5)
+# Goal acquired radius 
+goal_radius = wp.constant( 1.0)
+# Time Horizon
+time_horizon = wp.constant( 4.0)
+# Agent Distance
+agent_dist = wp.constant( 0.1)
+# Wall Distance
+wall_dist = wp.constant( 0.1)
+# Wall Steepnes
+wall_steepness = wp.constant( 2.0)
+# Agent Strength
+agent_strength = wp.constant( 1.0)
+# wFactor, factor to progressively scale down forces in when in a non-collision state
+w_factor = wp.constant( 0.8)
+# Noise flag (should noise be added to the movement action)
+noise = wp.constant( False )
+force_clamp = wp.constant( 40.0)
+
+## @TODO fix these constants
+
+# # *private* Ideal wall distance
+# _ideal_wall_dist = wp.constant( agent_radius + wall_dist)
+# # *private* Squared ideal wall distance
+# _SAFE = wp.constant( _ideal_wall_dist * _ideal_wall_dist)
+# # *private* Agent Personal space
+# _agent_personal_space = wp.constant( agent_radius + min_agent_dist)
+# # *private* the min distance parameters in peicewise personal space function
+# _dmin = wp.constant( agent_radius + _agent_personal_space)
+# # *private* the max distance parameters in peicewise personal space function
+# _dmax = wp.constant( time_horizon * max_speed)
+# # *private* FOV cosine
+# _cosFOV = wp.constant( np.cos((0.5 * np.pi * field_of_view) / 180.0))
+
+
+# *private* Ideal wall distance
+_ideal_wall_dist = wp.constant( 0.5 + 0.1)
+# *private* Squared ideal wall distance
+_SAFE = wp.constant( ( 0.5 + 0.1) * ( 0.5 + 0.1))
+# *private* Agent Personal space
+_agent_personal_space = wp.constant( 0.5 + 0.1)
+# *private* the min distance parameters in peicewise personal space function
+_dmin = wp.constant( 0.5 + 0.5 + 0.1)
+# *private* the max distance parameters in peicewise personal space function
+_dmax = wp.constant( 4.0 * 7)
+# *private* FOV cosine
+_cosFOV = wp.constant( np.cos((0.5 * np.pi * 200.0) / 180.0))
+
+
+
+@wp.kernel
+def get_forces(positions: wp.array(dtype=wp.vec3),
+                velocities: wp.array(dtype=wp.vec3),
+                goals: wp.array(dtype=wp.vec3),
+                radius: wp.array(dtype=float),
+                mass: wp.array(dtype=float),
+                dt: float,
+                percept : wp.array(dtype=float),
+                grid : wp.uint64,
+                mesh: wp.uint64,
+                inv_up: wp.vec3,
+                forces: wp.array(dtype=wp.vec3),
+                ):
+
+    # thread index
+    tid = wp.tid()
+
+    cur_pos = positions[tid]
+    cur_rad = radius[tid]
+    cur_vel = velocities[tid]
+    cur_mass = mass[tid]
+    goal = goals[tid]
+    pn = percept[tid]
+
+    _force = compute_force(cur_pos,
+                                cur_rad,
+                                cur_vel,
+                                cur_mass,
+                                goal,
+                                positions,
+                                velocities,
+                                radius,
+                                dt,
+                                pn,
+                                grid,
+                                mesh)
+
+    # Clear any vertical forces with Element-wise mul
+    _force = wp.cw_mul(_force, inv_up)
+
+    # compute distance of each point from origin
+    forces[tid] = _force
+
+@wp.func
+def ray_intersects_disc(pi: wp.vec3, 
+                        pj: wp.vec3, 
+                        v: wp.vec3, 
+                        r: float
+                        ):
     
     # calc ray disc est. time to collision
     t = 0.0
     w = pj - pi
-    a = np.dot(v, v)
-    b = np.dot(w, v)
-    c = np.dot(w, w) - (r * r)
+    a = wp.dot(v, v)
+    b = wp.dot(w, v)
+    c = wp.dot(w, w) - (r * r)
     discr = (b * b) - (a * c)
     if discr > 0.0:
-        t = (b - np.sqrt(discr)) / a
+        t = (b - wp.sqrt(discr)) / a
         if t < 0.0:
             t = 999999.0
     else:
@@ -135,24 +198,29 @@ def wall_force(obstacles,
             obstacle_force = (Parameters._ideal_wall_dist - d_w) / np.pow(dist_min_radius, Parameters.wall_steepness) * n_w
             add_force(obstacle_force)
     
-
-def calc_goal_force(goal, 
-                    rr_i, 
-                    vv_i):
+@wp.func
+def calc_goal_force(goal: wp.vec3, 
+                    rr_i: wp.vec3, 
+                    vv_i: wp.vec3):
+    
     # Preferred velocity is preferred speed in direction of goal
-    preferred_vel = Parameters.preferred_vel * norm(goal - rr_i)
+    preferred_vel =  wp.mul(wp.normalize(goal - rr_i), preferred_speed )
     
     # Goal force, is always added
-    goal_force = (preferred_vel - vv_i) / Parameters.ksi
+    goal_force = (preferred_vel - vv_i) / ksi
 
     return goal_force
 
-def collision_param(rr_i, 
-                    vv_i, 
-                    desired_vel, 
-                    pn_rr, 
-                    pn_vv, 
-                    pn_r):
+
+@wp.func
+def collision_param(rr_i: wp.vec3, 
+                    vv_i: wp.vec3, 
+                    desired_vel: wp.vec3, 
+                    pn_rr: wp.array(dtype=wp.vec3), 
+                    pn_vv: wp.array(dtype=wp.vec3), 
+                    pn_r: wp.array(dtype=float)
+                    ):
+    
     # Keep track of if we ever enter a collision state
     agent_collision = False
 
@@ -165,20 +233,20 @@ def collision_param(rr_i,
         #  Get radii of neighbor agent
         rj = pn_r[j]
         
-        combined_radius = Parameters._agent_personal_space + rj
+        combined_radius = _agent_personal_space + rj
         
         w = rr_j - rr_i 
-        if (mag(w) < combined_radius):
+        if (wp.length(w) < combined_radius):
             agent_collision = True
             t_pairs.append((0.0, j))
         else:
-            rel_dir = norm(w)
-            if np.dot(rel_dir, norm(vv_i)) < Parameters._cosFOV:
+            rel_dir = wp.normalize(w)
+            if wp.dot(rel_dir, wp.normalize(vv_i)) < _cosFOV:
                 continue
                 
             tc = ray_intersects_disc(rr_i, rr_j, desired_vel - vv_j, combined_radius)
-            if tc < Parameters.time_horizon:
-                if len(t_pairs) < Parameters.max_neighbors:
+            if tc < time_horizon:
+                if len(t_pairs) < max_neighbors:
                     t_pairs.append((tc, j))
                 elif tc < t_pairs[0][0]:
                     t_pairs.pop()
@@ -186,13 +254,15 @@ def collision_param(rr_i,
 
     return t_pairs, agent_collision
 
-def predictive_force(rr_i, 
-                     desired_vel, 
-                     desired_speed, 
-                     pn_rr, 
-                     pn_vv, 
-                     pn_r, 
-                     vv_i):
+@wp.func
+def predictive_force(rr_i: wp.vec3, 
+                     desired_vel: wp.vec3, 
+                     desired_speed: float, 
+                     pn_rr: wp.array(dtype=wp.vec3), 
+                     pn_vv: wp.array(dtype=wp.vec3), 
+                     pn_r: wp.array(dtype=float),
+                     vv_i: wp.vec3
+                     ):
     
     # Handle predictive forces// Predictive forces
 
@@ -200,7 +270,7 @@ def predictive_force(rr_i,
     t_pairs, agent_collision = collision_param(rr_i, vv_i, desired_vel, pn_rr, pn_vv, pn_r)
 
     # This will be all the other forces, added in a particular way
-    steering_force = np.array([0, 0, 0], dtype='float64')
+    steering_force = wp.vec3(0.0,0.0,0.0)
 
     # will store a list of tuples, each tuple is (tc, agent)
     force_count = 0
@@ -211,26 +281,32 @@ def predictive_force(rr_i,
         agent_idx = t_pair[1]
         
         force_dir = rr_i + (desired_vel * t) - pn_rr[agent_idx] - (pn_vv[agent_idx] * t)
-        force_dist = mag(force_dir)
+        force_dist = wp.length(force_dir)
         if force_dist > 0:
-            force_dir /= force_dist
+            force_dir =  force_dir / force_dist # @TODO check this is the right order
             
-        collision_dist = np.maximum(force_dist - Parameters.agent_radius - pn_r[agent_idx], 0.0)
+        collision_dist = wp.max(force_dist - agent_radius - pn_r[agent_idx], 0.0)
         
         #D = input to evasive force magnitude piecewise function
-        D = np.maximum( (desired_speed * t) + collision_dist, 0.001)
+        D = wp.max( (desired_speed * t) + collision_dist, 0.001)
         
         force_mag = 0.0
-        if D < Parameters._dmin:
-            force_mag = Parameters.agent_strength * Parameters._dmin / D
-        elif D < Parameters.dmid:
-            force_mag = Parameters.agent_strength
-        elif D < Parameters._dmax:
-            force_mag = Parameters.agent_strength * (Parameters._dmax - D) / (Parameters._dmax - Parameters.dmid)
+        if D < _dmin:
+            force_mag = agent_strength * _dmin / D
+        elif D < dmid:
+            force_mag = agent_strength
+        elif D < _dmax:
+            force_mag = agent_strength * (_dmax - D) / (_dmax - dmid)
         else:
             continue
-            
-        force_mag *= np.power( (1.0 if agent_collision else Parameters.w_factor), force_count)
+
+        if agent_collision: 
+            force_mag = wp.pow(1, force_count) * force_mag
+        else:
+            force_mag = wp.pow(w_factor, force_count) * force_mag
+
+        # force_mag *= np.power( (1.0 if agent_collision else w_factor), force_count)
+        
         force_count += 1
         steering_force = force_mag * force_dir
 
@@ -243,37 +319,52 @@ def add_noise(steering_force):
 
     return steering_force
 
-def compute_force(rr_i, 
-                  ri, 
-                  vv_i, 
-                  mass, 
-                  goal, 
-                  pn_rr, 
-                  pn_vv, 
-                  pn_r, 
-                  dt):
+@wp.func
+def compute_force(rr_i: wp.vec3, 
+                    ri: float,
+                    vv_i: wp.vec3, 
+                    mass:float,
+                    goal:wp.vec3, 
+                    pn_rr: wp.array(dtype=wp.vec3),
+                    pn_vv: wp.array(dtype=wp.vec3),
+                    pn_r: wp.array(dtype=float), 
+                    dt: float,
+                    pn: float,
+                    grid : wp.uint64,
+                    mesh: wp.uint64
+                    ):
+    ''' 
+    rr_i : position
+    ri : radius
+    vv_i : velocity
+    pn_rr : List[perceived neighbor positions]
+    pn_vv : List[perceived neighbor velocities]
+    pn_r : List[perceived neighbor radius]
+    '''
+
 
     # Get the goal force
     goal_force = calc_goal_force(goal, rr_i, vv_i)
 
     # Desired values if all was going well in an empty world
     desired_vel = vv_i + goal_force * dt
-    desired_speed = mag(desired_vel)
+    desired_speed = wp.length(desired_vel)
 
     # Get obstacle (wall) forces
-    obstacle_force = np.array([0, 0, 0], dtype='float64')
+    obstacle_force = wp.vec3(0.0,0.0,0.0)
     #@TODO 
     # obstacle_force = wall_force()
-    
+
+    steering_force = wp.vec3(0.0,0.0,0.0)
     # Get predictive steering forces
     steering_force = predictive_force(rr_i, desired_vel, desired_speed, pn_rr, pn_vv, pn_r, vv_i)
 
-    # Add noise for reducing deadlocks adding naturalness
-    if Parameters.noise:
-        steering_force = add_noise(steering_force)
+    # # Add noise for reducing deadlocks adding naturalness
+    # if noise:
+    #     steering_force = add_noise(steering_force)
 
-    # Clamp driving force
-    if mag(steering_force) > Parameters.force_clamp:
-        steering_force = norm(steering_force) *  Parameters.force_clamp
+    # # Clamp driving force
+    # if mag(steering_force) > force_clamp:
+    #     steering_force = norm(steering_force) *  force_clamp
     
     return goal_force + obstacle_force + steering_force

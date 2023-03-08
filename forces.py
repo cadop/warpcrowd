@@ -1,5 +1,7 @@
 import warp as wp
 
+
+# @TODO move to wp.struct
 Tau = wp.constant(0.5) # s (acceleration)
 A = wp.constant(2000.0) # N
 B = wp.constant(0.08) # m
@@ -125,7 +127,6 @@ def calc_goal_force(goal: wp.vec3,
                     dt: float):
     ee_i = wp.normalize(goal - pos)
     force = mass * ( ( (v_desired * ee_i) - vel ) / (Tau) )
-
     return force 
 
 @wp.func
