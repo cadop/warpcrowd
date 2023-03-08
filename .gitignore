@@ -5,3 +5,4 @@ warpsf/
 *.png
 *.pdb
 .vscode/
+venv/
