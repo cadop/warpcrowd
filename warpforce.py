@@ -3,6 +3,7 @@
 import numpy as np
 import warp as wp
 import forces as crowd_force
+import pam as pam_force
 
 class WarpCrowd():
     
@@ -25,13 +26,20 @@ class WarpCrowd():
 
         self.goal = [0.0,0.0,0.0]
 
+        self.up_vec = wp.vec3(0.0,0.0,0.0)
+        self.up_vec[1] = 1.0 # y-up
+        # self.up_vec[2] = 1.0 # z-up
+        self.forward_vec = wp.vec3(1.0,0.0,0.0)
+
         self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
-        self.inv_up_vector[2] = 0.0 # z-up
+        # self.inv_up_vector[2] = 0.0 # z-up
+        self.inv_up_vector[1] = 0.0 # y-up
 
     def demo_agents(self, s=1.1, m=50, n=50):
         # Initialize agents in a grid for testing
         self.agents_pos = np.asarray([
-                                      np.array([(s/2) + (x * s), (s/2) + (y * s), 0], dtype=np.double) 
+                                      np.array([(s/2) + (x * s), self.radius_max, (s/2) + (y * s)], dtype=np.double) 
+                                    #   np.array([(s/2) + (x * s), (s/2) + (y * s), self.radius_max], dtype=np.double) 
                                       for x in range(m) 
                                       for y in range(n)
                                     ])
@@ -44,7 +52,8 @@ class WarpCrowd():
         Should be called only after number of agents have been defined
         '''
 
-        self.agents_pos = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
+        self.agents_hdir = np.asarray([np.array([0,0,0,1], dtype=float) for x in range(self.nagents)])
+        # self.agents_pos = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_vel = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_radi = np.random.uniform(self.radius_min, self.radius_max, self.nagents)
         self.agents_mass = [self.mass for x in range(self.nagents)]
@@ -54,6 +63,7 @@ class WarpCrowd():
         self.xnew = np.zeros_like(self.agents_pos)
         self.vnew = np.zeros_like(self.agents_vel) 
 
+        self.agents_hdir_wp = wp.array(self.agents_hdir, device=self.device, dtype=wp.vec4)
         self.agent_force_wp = wp.zeros(shape=self.nagents,device=self.device, dtype=wp.vec3)
         self.agents_pos_wp = wp.array(self.agents_pos, device=self.device, dtype=wp.vec3)
         self.agents_vel_wp = wp.array(self.agents_vel, device=self.device, dtype=wp.vec3)
@@ -64,6 +74,7 @@ class WarpCrowd():
 
         self.xnew_wp = wp.zeros_like(wp.array(self.xnew, device=self.device, dtype=wp.vec3))
         self.vnew_wp = wp.zeros_like(wp.array(self.vnew, device=self.device, dtype=wp.vec3))
+        self.hdir_wp = wp.zeros_like(wp.array(self.agents_hdir, device=self.device, dtype=wp.vec4))
 
     def config_hashgrid(self, nagents=None):
         '''Create a hash grid based on the number of agents
@@ -124,3 +135,12 @@ class WarpCrowd():
     
         self.agents_pos_wp = self.xnew_wp
         self.agents_vel_wp = self.vnew_wp
+
+        wp.launch(kernel=crowd_force.heading,
+                dim=self.nagents,
+                inputs=[self.agents_vel_wp, self.up_vec, self.forward_vec],
+                outputs=[self.hdir_wp],
+                device=self.device
+                )
+
+        self.agents_hdir_wp = self.hdir_wp
