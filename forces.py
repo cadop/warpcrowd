@@ -104,18 +104,20 @@ def velocity_to_quaternion(up : wp.vec3,
     else:
         axis = wp.cross(forward, velocity)
         axis = up * wp.sign(wp.dot(axis, up))  # Project the axis onto the up plane
-        if wp.length(axis) > 0.0: axis = wp.normalize(axis)  # Normalize the axis of rotation
-        else:axis = up  # Use a default axis of rotation if the iwput is a zero vector
+        axis_norm = wp.length(axis)
+        if axis_norm > 0.0:
+            axis = axis / axis_norm  # Normalize the axis of rotation
+        else:
+            axis = up  # Use a default axis of rotation if the iwput is a zero vector
         angle = wp.acos(dot)  # Calculate the angle of rotation with clipping
-        
         qw = wp.cos(angle/2.0)  # Calculate the scalar component of the quaternion
+
         qx = wp.sin(angle/2.0) * axis[0]  # Calculate the vector component of the quaternion
         qy = wp.sin(angle/2.0) * axis[1]  # Calculate the vector component of the quaternion
         qz = wp.sin(angle/2.0) * axis[2]  # Calculate the vector component of the quaternion
         
         return wp.vec4(qx, qy, qz, qw)
-
-
+    
 @wp.func
 def calc_goal_force(goal: wp.vec3, 
                     pos: wp.vec3, 
