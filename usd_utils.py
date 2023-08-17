@@ -1,6 +1,12 @@
 import numpy as np
 from pxr import UsdGeom, Gf, Usd
-# import omni
+
+
+def children_as_mesh(stage, parent_prim):
+    children = parent_prim.GetAllChildren()
+    children = [child.GetPrimPath() for child in children]
+    points, faces = get_mesh(stage, children)
+    return points, faces
 
 def get_mesh(usd_stage, objs):
 
@@ -46,8 +52,9 @@ def convert_to_mesh(prim):
     # New vertices
     vert_list = np.dot((vert_list * scale ), rotation) + translation
 
-    faces = parse_faces(tris, tris_cnt)
-    tri_list = convert_to_triangle_mesh(faces)
+    tri_list = convert_to_triangle_mesh(tris, tris_cnt)
+    # faces = parse_faces(tris, tris_cnt)
+    # tri_list = convert_to_triangle_mesh(faces)
     tri_list = tri_list.flatten()
     # tri_list = triangulate(tris_cnt, tris)
 
@@ -77,59 +84,39 @@ def triangulate(face_counts, face_indices):
     return tri_indices
 
 
-def children_as_mesh(stage, parent_prim):
-    children = parent_prim.GetAllChildren()
-    children = [child.GetPrimPath() for child in children]
-    points, faces = get_mesh(stage, children)
-    return points, faces
 
 
 
-def parse_faces(GetFaceVertexIndices, FaceVertexCounts):
+def convert_to_triangle_mesh(FaceVertexIndices, FaceVertexCounts):
     """
-    Parse the face vertex indices into individual face lists based on the face vertex counts.
+    Convert a list of vertices and a list of faces into a triangle mesh.
     
-    :param GetFaceVertexIndices: List of vertex indices.
-    :param FaceVertexCounts: List of the number of vertices that each face has.
-    :return: A list of faces, where each face is a list of indices of the vertices that form the face.
+    A list of triangle faces, where each face is a list of indices of the vertices that form the face.
     """
+    
+    # Parse the face vertex indices into individual face lists based on the face vertex counts.
+
     faces = []
     start = 0
     for count in FaceVertexCounts:
         end = start + count
-        face = GetFaceVertexIndices[start:end]
+        face = FaceVertexIndices[start:end]
         faces.append(face)
         start = end
-    return faces
 
-def triangulate_face(face):
-    """
-    Triangulate a single face.
-    
-    :param face: A list of indices of the vertices that form the face.
-    :return: A list of triangles resulting from the triangulation of the face.
-    """
-    if len(face) < 3:
-        return []  # Invalid face
-    elif len(face) == 3:
-        return [face]  # Already a triangle
-    else:
-        # Fan triangulation: pick the first vertex and connect it to all other vertices
-        v0 = face[0]
-        return [[v0, face[i], face[i + 1]] for i in range(1, len(face) - 1)]
-    
-def convert_to_triangle_mesh(faces):
-    """
-    Convert a list of vertices and a list of faces into a triangle mesh.
-    
-    :param vertices: List of vertices. Each vertex is a list of its coordinates.
-    :param faces: List of faces. Each face is a list of indices of the vertices that form the face.
-    :return: A list of triangle faces, where each face is a list of indices of the vertices that form the face.
-    """
     # Convert all faces to triangles
     triangle_faces = []
     for face in faces:
-        triangle_faces.extend(triangulate_face(face))
+        if len(face) < 3:
+            newface = []  # Invalid face
+        elif len(face) == 3:
+            newface = [face]  # Already a triangle
+        else:
+            # Fan triangulation: pick the first vertex and connect it to all other vertices
+            v0 = face[0]
+            newface = [[v0, face[i], face[i + 1]] for i in range(1, len(face) - 1)]
+
+        triangle_faces.extend(newface)
     
     return np.array(triangle_faces)
 
