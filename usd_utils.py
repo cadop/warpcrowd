@@ -1,8 +1,9 @@
 import numpy as np
-import mesh_utils
+from pxr import UsdGeom, Gf, Usd
+# import omni
 
 def get_mesh(usd_stage, objs):
-    
+
     points, faces = [],[]
 
     for obj in objs:
@@ -14,22 +15,7 @@ def get_mesh(usd_stage, objs):
     return points, faces
 
 def convert_to_mesh(prim):
-    '''Coverts a usd prim to a mesh
-    Imports pxr UsdGeom, Gf, Usd which should only need to exist if user uses
-    usd_utils
-
-    Parameters
-    ----------
-    prim : UsdPrim
-        _description_
-
-    Returns
-    -------
-    (faces, vertices)
-        list of faces and vertices for that mesh in world space
-    '''
-
-    from pxr import UsdGeom, Gf, Usd
+    ''' convert a prim to BVH '''
 
     # Get mesh name (prim name)
     m = UsdGeom.Mesh(prim)
@@ -49,24 +35,43 @@ def convert_to_mesh(prim):
     world_transform: Gf.Matrix4d = xform.ComputeLocalToWorldTransform(time)
     translation: Gf.Vec3d = world_transform.ExtractTranslation()
     rotation: Gf.Rotation = world_transform.ExtractRotationMatrix()
+    # rotation: Gf.Rotation = world_transform.ExtractRotation()
     scale: Gf.Vec3d = Gf.Vec3d(*(v.GetLength() for v in world_transform.ExtractRotationMatrix()))
+    rotation = rotation.GetOrthonormalized()
 
-    vert_rotated = np.dot(vert_list, rotation) # Rotate points
+    # New vertices
+    vert_list = np.dot((vert_list * scale ), rotation) + translation
 
-    vert_translated = vert_rotated + translation
-
-    vert_scaled = vert_translated
-    vert_scaled[:,0] *= scale[0]
-    vert_scaled[:,1] *= scale[1]
-    vert_scaled[:,2] *= scale[2]
-
-    vert_list = vert_scaled
-
-    # Check if the face counts are 4, if so, reshape and turn to triangles
-    if tris_cnt[0] == 4:
-        quad_list = tri_list.reshape(-1,4)
-        tri_list = mesh_utils.quad_to_tri(quad_list)
-        tri_list = tri_list.flatten()
+    tri_list = triangulate(tris_cnt, tris)
 
     return tri_list, vert_list
 
+
+def triangulate(face_counts, face_indices):
+    '''
+    Taken from :
+    https://github.com/NVIDIA/warp/blob/main/warp/tests/test_mesh_query_point.py#L248
+    '''
+
+    num_tris = np.sum(np.subtract(face_counts, 2))
+    num_tri_vtx = num_tris * 3
+    tri_indices = np.zeros(num_tri_vtx, dtype=int)
+    ctr = 0
+    wedgeIdx = 0
+
+    for nb in face_counts:
+        for i in range(nb - 2):
+            tri_indices[ctr] = face_indices[wedgeIdx]
+            tri_indices[ctr + 1] = face_indices[wedgeIdx + i + 1]
+            tri_indices[ctr + 2] = face_indices[wedgeIdx + i + 2]
+            ctr += 3
+        wedgeIdx += nb
+
+    return tri_indices
+
+
+def children_as_mesh(stage, parent_prim):
+    children = parent_prim.GetAllChildren()
+    children = [child.GetPrimPath() for child in children]
+    points, faces = get_mesh(stage, children)
+    return points, faces
