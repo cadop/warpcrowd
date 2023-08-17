@@ -9,6 +9,7 @@ def get_mesh(usd_stage, objs):
     for obj in objs:
         f_offset = len(points)
         f, p = convert_to_mesh(usd_stage.GetPrimAtPath(obj))
+        if len(p) == 0: continue
         points.extend(p)
         faces.extend(f+f_offset)
 
@@ -22,6 +23,9 @@ def convert_to_mesh(prim):
 
     # Get verts and triangles
     tris = m.GetFaceVertexIndicesAttr().Get()
+
+    if not tris:
+        return [], []
 
     tris_cnt = m.GetFaceVertexCountsAttr().Get()
 
@@ -42,7 +46,10 @@ def convert_to_mesh(prim):
     # New vertices
     vert_list = np.dot((vert_list * scale ), rotation) + translation
 
-    tri_list = triangulate(tris_cnt, tris)
+    faces = parse_faces(tris, tris_cnt)
+    tri_list = convert_to_triangle_mesh(faces)
+    tri_list = tri_list.flatten()
+    # tri_list = triangulate(tris_cnt, tris)
 
     return tri_list, vert_list
 
@@ -75,3 +82,54 @@ def children_as_mesh(stage, parent_prim):
     children = [child.GetPrimPath() for child in children]
     points, faces = get_mesh(stage, children)
     return points, faces
+
+
+
+def parse_faces(GetFaceVertexIndices, FaceVertexCounts):
+    """
+    Parse the face vertex indices into individual face lists based on the face vertex counts.
+    
+    :param GetFaceVertexIndices: List of vertex indices.
+    :param FaceVertexCounts: List of the number of vertices that each face has.
+    :return: A list of faces, where each face is a list of indices of the vertices that form the face.
+    """
+    faces = []
+    start = 0
+    for count in FaceVertexCounts:
+        end = start + count
+        face = GetFaceVertexIndices[start:end]
+        faces.append(face)
+        start = end
+    return faces
+
+def triangulate_face(face):
+    """
+    Triangulate a single face.
+    
+    :param face: A list of indices of the vertices that form the face.
+    :return: A list of triangles resulting from the triangulation of the face.
+    """
+    if len(face) < 3:
+        return []  # Invalid face
+    elif len(face) == 3:
+        return [face]  # Already a triangle
+    else:
+        # Fan triangulation: pick the first vertex and connect it to all other vertices
+        v0 = face[0]
+        return [[v0, face[i], face[i + 1]] for i in range(1, len(face) - 1)]
+    
+def convert_to_triangle_mesh(faces):
+    """
+    Convert a list of vertices and a list of faces into a triangle mesh.
+    
+    :param vertices: List of vertices. Each vertex is a list of its coordinates.
+    :param faces: List of faces. Each face is a list of indices of the vertices that form the face.
+    :return: A list of triangle faces, where each face is a list of indices of the vertices that form the face.
+    """
+    # Convert all faces to triangles
+    triangle_faces = []
+    for face in faces:
+        triangle_faces.extend(triangulate_face(face))
+    
+    return np.array(triangle_faces)
+
