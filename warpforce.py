@@ -3,7 +3,6 @@
 import numpy as np
 import warp as wp
 import forces as crowd_force
-# import pam as pam_force
 
 class WarpCrowd():
     
@@ -62,11 +61,11 @@ class WarpCrowd():
 
         self.xnew = np.zeros_like(self.agents_pos)
         self.vnew = np.zeros_like(self.agents_vel) 
-        self.hnew = np.zeros_like(self.agents_dir) 
+        # self.hnew = np.zeros_like(self.agents_dir) 
 
         self.agents_hdir_wp = wp.array(self.agents_hdir, device=self.device, dtype=wp.vec4)
         self.agent_force_wp = wp.zeros(shape=self.nagents,device=self.device, dtype=wp.vec3)
-        self.agents_dir_wp = wp.array(self.agents_dir, device=self.device, dtype=wp.vec4)
+        # self.agents_dir_wp = wp.array(self.agents_dir, device=self.device, dtype=wp.vec4)
         self.agents_pos_wp = wp.array(self.agents_pos, device=self.device, dtype=wp.vec3)
         self.agents_vel_wp = wp.array(self.agents_vel, device=self.device, dtype=wp.vec3)
         self.agents_goal_wp = wp.array(self.agents_goal, device=self.device, dtype=wp.vec3)
@@ -105,7 +104,12 @@ class WarpCrowd():
         self.mesh = wp.Mesh( points=wp.array(points, dtype=wp.vec3, device=self.device),
                             indices=wp.array(faces, dtype=int ,device=self.device)
                             )
+        
+        points = self.mesh.points.numpy()
+        faces = self.mesh.indices.numpy()
 
+        return points, faces
+    
     def update_goals(self, goal):
         if len(goal) == 1:
             self.agents_goal = np.asarray([np.array(goal[0], dtype=float) for x in range(self.nagents)])
