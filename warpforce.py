@@ -6,16 +6,17 @@ import forces as crowd_force
 
 class WarpCrowd():
     
-    def __init__(self, device='cuda'):
+    def __init__(self, up_axis='y', device='cuda'):
         self.device = device
+        self.up_axis = up_axis
 
         # generate n number of agents
         self.nagents = None
         # set radius
-        self.radius = 0.7
-        self.radius_min = 0.5
-        self.radius_max = 1.0
-        self.hash_radius = 0.7 # Radius to use for hashgrid
+        self.radius = 0.5
+        self.radius_min = 0.3
+        self.radius_max = .8
+        self.hash_radius = 0.5 # Radius to use for hashgrid
         # set mass
         self.mass = 80
         # set pereption radius
@@ -26,22 +27,31 @@ class WarpCrowd():
         self.goal = [0.0,0.0,0.0]
 
         self.up_vec = wp.vec3(0.0,0.0,0.0)
-        self.up_vec[1] = 1.0 # y-up
-        # self.up_vec[2] = 1.0 # z-up
+        self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
         self.forward_vec = wp.vec3(1.0,0.0,0.0)
 
-        self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
-        # self.inv_up_vector[2] = 0.0 # z-up
-        self.inv_up_vector[1] = 0.0 # y-up
+        if up_axis == 'y':
+            self.up_vec[1] = 1.0 # y-up
+            self.inv_up_vector[1] = 0.0 # y-up
+        else: 
+            self.up_vec[2] = 1.0 # z-up
+            self.inv_up_vector[2] = 0.0 # z-up
 
     def demo_agents(self, s=1.1, m=50, n=50):
         # Initialize agents in a grid for testing
-        self.agents_pos = np.asarray([
-                                      np.array([(s/2) + (x * s), self.radius_max, (s/2) + (y * s)], dtype=np.double) 
-                                    #   np.array([(s/2) + (x * s), (s/2) + (y * s), self.radius_max], dtype=np.double) 
-                                      for x in range(m) 
-                                      for y in range(n)
-                                    ])
+        if self.up_axis == 'y':
+
+            self.agents_pos = np.asarray([
+                                        np.array([(s/2) + (x * s), self.radius_max/2, (s/2) + (y * s)], dtype=np.double) 
+                                        for x in range(m) 
+                                        for y in range(n)
+                                        ])
+        else:
+            self.agents_pos = np.asarray([
+                                        np.array([(s/2) + (x * s), (s/2) + (y * s), self.radius_max/2], dtype=np.double) 
+                                        for x in range(m) 
+                                        for y in range(n)
+                                        ])
         self.nagents = len(self.agents_pos)
         self.configure_params()
 
