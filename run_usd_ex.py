@@ -13,7 +13,7 @@ wp.init()
 def run_class():
 
     # USD Scene stuff
-    usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "simple_env.usd"))
+    usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "simple_env.usda"))
     up_axis = 'y'
     points, faces = usd_utils.get_all_stage_mesh(usd_stage)
     stage = os.path.join(os.path.dirname(__file__), "warpcrowd_output.usd")
