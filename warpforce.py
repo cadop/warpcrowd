@@ -14,8 +14,8 @@ class WarpCrowd():
         self.nagents = None
         # set radius
         self.radius = 0.5
-        self.radius_min = 0.3
-        self.radius_max = .8
+        self.radius_min = 0.4
+        self.radius_max = .65
         self.hash_radius = 0.5 # Radius to use for hashgrid
         # set mass
         self.mass = 80
@@ -30,7 +30,7 @@ class WarpCrowd():
         self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
         self.forward_vec = wp.vec3(1.0,0.0,0.0)
 
-        if up_axis == 'y':
+        if self.up_axis.upper() == 'Y':
             self.up_vec[1] = 1.0 # y-up
             self.inv_up_vector[1] = 0.0 # y-up
         else: 
@@ -39,19 +39,14 @@ class WarpCrowd():
 
     def demo_agents(self, s=1.1, m=50, n=50):
         # Initialize agents in a grid for testing
-        if self.up_axis == 'y':
-
-            self.agents_pos = np.asarray([
-                                        np.array([(s/2) + (x * s), self.radius_max/2, (s/2) + (y * s)], dtype=np.double) 
+        if self.up_axis.upper() == 'Y':
+            self.agents_pos = np.asarray([np.array([(s/2) + (x * s), self.radius_max/2, (s/2) + (y * s)], dtype=np.double) 
                                         for x in range(m) 
-                                        for y in range(n)
-                                        ])
+                                        for y in range(n)])
         else:
-            self.agents_pos = np.asarray([
-                                        np.array([(s/2) + (x * s), (s/2) + (y * s), self.radius_max/2], dtype=np.double) 
+            self.agents_pos = np.asarray([np.array([(s/2) + (x * s), (s/2) + (y * s), self.radius_max/2], dtype=np.double) 
                                         for x in range(m) 
-                                        for y in range(n)
-                                        ])
+                                        for y in range(n)])
         self.nagents = len(self.agents_pos)
         self.configure_params()
 
@@ -62,7 +57,6 @@ class WarpCrowd():
         '''
 
         self.agents_hdir = np.asarray([np.array([0,0,0,1], dtype=float) for x in range(self.nagents)])
-        # self.agents_pos = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_vel = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_radi = np.random.uniform(self.radius_min, self.radius_max, self.nagents)
         self.agents_mass = [self.mass for x in range(self.nagents)]
@@ -71,11 +65,9 @@ class WarpCrowd():
 
         self.xnew = np.zeros_like(self.agents_pos)
         self.vnew = np.zeros_like(self.agents_vel) 
-        # self.hnew = np.zeros_like(self.agents_dir) 
 
         self.agents_hdir_wp = wp.array(self.agents_hdir, device=self.device, dtype=wp.vec4)
         self.agent_force_wp = wp.zeros(shape=self.nagents,device=self.device, dtype=wp.vec3)
-        # self.agents_dir_wp = wp.array(self.agents_dir, device=self.device, dtype=wp.vec4)
         self.agents_pos_wp = wp.array(self.agents_pos, device=self.device, dtype=wp.vec3)
         self.agents_vel_wp = wp.array(self.agents_vel, device=self.device, dtype=wp.vec3)
         self.agents_goal_wp = wp.array(self.agents_goal, device=self.device, dtype=wp.vec3)
@@ -98,7 +90,8 @@ class WarpCrowd():
         '''
 
         if nagents is None: nagents = self.nagents
-        self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=self.nagents, dim_z=1, device=self.device)
+        if self.up_axis.upper() == 'Y': self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=1, dim_z=self.nagents, device=self.device)
+        elif self.up_axis.upper() == 'Z': self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=self.nagents, dim_z=1, device=self.device)
 
     def config_mesh(self, points, faces):
         '''Create a warp mesh object from points and faces
