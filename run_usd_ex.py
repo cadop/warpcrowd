@@ -41,7 +41,6 @@ def run_class():
         wc.compute_step()
         heading = wc.agents_hdir_wp.numpy()
         sim_time = render(False, renderer, wc.mesh, wc.xnew_wp, heading, radi, sim_time, wc.dt)
-        # sim_time = render(False, renderer, wc.mesh, wc.xnew_wp, radius, sim_time, wc.dt)
     
     print(time.time()-start)
     renderer.save()
