@@ -54,15 +54,15 @@ def render(is_live, renderer, mesh, positions, headings, sim_margin, sim_time, d
         
         renderer.begin_frame(time)
 
-        # Render capsules
-        # renderer.render_capsules(name="CapsuleAgent", 
-        #                          points=positions.numpy(), 
-        #                          radius=sim_margin, 
-        #                          half_height=.45, 
-        #                          orientations=headings)
+        Render capsules
+        renderer.render_capsules(name="CapsuleAgent", 
+                                 points=positions.numpy(), 
+                                 radius=sim_margin, 
+                                 half_height=.45, 
+                                 orientations=headings)
         
         # Render points, a bit faster than capsules
-        renderer.render_points(name="points", points=positions.numpy(), radius=sim_margin)
+        # renderer.render_points(name="points", points=positions.numpy(), radius=sim_margin)
         renderer.end_frame()
 
     sim_time += dt
