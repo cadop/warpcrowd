@@ -17,7 +17,7 @@ def run_class():
     renderer = NewRenderer(stage, up_axis=up_axis)
 
     # USD Scene stuff
-    usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "simple_env.usda"))
+    usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "examples/simple_env.usda"))
     points, faces = usd_utils.get_all_stage_mesh(usd_stage)
 
 
@@ -54,7 +54,7 @@ def render(is_live, renderer, mesh, positions, headings, sim_margin, sim_time, d
         
         renderer.begin_frame(time)
 
-        Render capsules
+        # Render capsules
         renderer.render_capsules(name="CapsuleAgent", 
                                  points=positions.numpy(), 
                                  radius=sim_margin, 

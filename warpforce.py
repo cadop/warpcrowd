@@ -30,23 +30,15 @@ class WarpCrowd():
         self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
         self.forward_vec = wp.vec3(1.0,0.0,0.0)
 
-        if self.up_axis.upper() == 'Y':
-            self.up_vec[1] = 1.0 # y-up
-            self.inv_up_vector[1] = 0.0 # y-up
-        else: 
-            self.up_vec[2] = 1.0 # z-up
-            self.inv_up_vector[2] = 0.0 # z-up
+        self.up_vec[1] = 1.0 # y-up
+        self.inv_up_vector[1] = 0.0 # y-up
 
     def demo_agents(self, s=1.1, m=50, n=50):
         # Initialize agents in a grid for testing
-        if self.up_axis.upper() == 'Y':
-            self.agents_pos = np.asarray([np.array([(s/2) + (x * s), self.radius_max/2, (s/2) + (y * s)], dtype=np.double) 
-                                        for x in range(m) 
-                                        for y in range(n)])
-        else:
-            self.agents_pos = np.asarray([np.array([(s/2) + (x * s), (s/2) + (y * s), self.radius_max/2], dtype=np.double) 
-                                        for x in range(m) 
-                                        for y in range(n)])
+        self.agents_pos = np.asarray([np.array([(s/2) + (x * s), self.radius_max/2, (s/2) + (y * s)], dtype=np.double) 
+                                    for x in range(m) 
+                                    for y in range(n)])
+
         self.nagents = len(self.agents_pos)
         self.configure_params()
 
@@ -90,8 +82,8 @@ class WarpCrowd():
         '''
 
         if nagents is None: nagents = self.nagents
-        if self.up_axis.upper() == 'Y': self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=1, dim_z=self.nagents, device=self.device)
-        elif self.up_axis.upper() == 'Z': self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=self.nagents, dim_z=1, device=self.device)
+        self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=1, dim_z=self.nagents, device=self.device)
+
 
     def config_mesh(self, points, faces):
         '''Create a warp mesh object from points and faces
