@@ -12,16 +12,15 @@ wp.init()
 
 def run_class():
 
-    up_axis = 'y'
     stage = os.path.join(os.path.dirname(__file__), "warpcrowd_output.usd")
-    renderer = NewRenderer(stage, up_axis=up_axis)
+    renderer = NewRenderer(stage)
 
     # USD Scene stuff
     usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "examples/simple_env.usda"))
     points, faces = usd_utils.get_all_stage_mesh(usd_stage)
 
 
-    wc = WarpCrowd(up_axis=up_axis)
+    wc = WarpCrowd()
     wc.demo_agents(m=100, n=100, s=1.6)
 
     wc.config_hashgrid()
