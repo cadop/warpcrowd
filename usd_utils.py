@@ -80,7 +80,6 @@ def meshconvert(prim):
 def convert_to_triangle_mesh(FaceVertexIndices, FaceVertexCounts):
     """
     Convert a list of vertices and a list of faces into a triangle mesh.
-    
     A list of triangle faces, where each face is a list of indices of the vertices that form the face.
     """
     

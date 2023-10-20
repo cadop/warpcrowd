@@ -14,10 +14,8 @@ def run_class():
 
     wc = WarpCrowd()
     wc.demo_agents(m=100, n=100, s=1.6)
-
     wc.nagents = len(wc.agents_pos)
     wc.configure_params() # Call to setup params for warp, use after defining agents
-
     wc.config_hashgrid()
     wc.config_mesh(np.asarray(points), np.asarray(faces))
     wc.update_goals([[-80.8,-50.0,0.0]])
@@ -28,10 +26,9 @@ def run_class():
     # Run simulation Steps
     for i in range(num_sim_steps):
         wc.compute_step()
-        # Get Agent Positions
-        pos = wc.xnew_wp
+        pos = wc.xnew_wp # Get Agent Positions
 
-    print(f'Computation time of {num_sim_steps} for {len(wc.agents_pos)} agents took: {time.time()-start} seconds, for {((time.time()-start)/num_sim_steps)*1000}ms per step')
-
+    print(f'Computation time of {num_sim_steps} for {len(wc.agents_pos)} agents took: \
+          {time.time()-start} seconds, for {((time.time()-start)/num_sim_steps)*1000}ms per step')
 
 run_class()
