@@ -104,7 +104,7 @@ class WarpCrowd():
             A list of integers corresponding to vertices. Must be triangle-based
         '''
         # Init mesh for environment collision
-        self.mesh = wp.Mesh( points=wp.array(points, dtype=wp.vec3, device=self.device),
+        self.mesh = wp.Mesh(points=wp.array(points, dtype=wp.vec3, device=self.device),
                             indices=wp.array(faces, dtype=int ,device=self.device)
                             )
         
