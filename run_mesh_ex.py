@@ -12,7 +12,7 @@ def run_class():
 
     points, faces = mesh_utils.load_obj('examples/simple_env.obj')
 
-    wc = WarpCrowd(up_axis='y')
+    wc = WarpCrowd()
     wc.demo_agents(m=100, n=100, s=1.6)
 
     wc.nagents = len(wc.agents_pos)
