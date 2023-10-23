@@ -3,6 +3,9 @@
 
 The script is purely python and relies on NVIDIA Warp for GPU acceleration. However, the USD run example shows how to load and render an environment with the simulation saved to a USD file that can be loaded in Omniverse. 
 
+![image](https://github.com/cadop/warpcrowd/assets/11399119/fc048a9e-98f2-4d28-8a28-1a4be1bf7805)
+
+
 ## Use
 There are example files in the `examples` folder. The two sample scripts are `run_mesh_ex.py` and `run_usd_ex.py`. These both by default reference a sample file, although you can change to most other files. Meshes will often be tricky, and although there is a helper function for converting ngons to triangles, its best at the beginning stages to just use triangles. 
 
