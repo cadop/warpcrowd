@@ -3,7 +3,7 @@
 
 The script is purely python and relies on NVIDIA Warp for GPU acceleration. However, the USD run example shows how to load and render an environment with the simulation saved to a USD file that can be loaded in Omniverse. 
 
-![image](https://github.com/cadop/warpcrowd/assets/11399119/fc048a9e-98f2-4d28-8a28-1a4be1bf7805)
+![image](https://github.com/cadop/warpcrowd/assets/11399119/c194cfb4-64d6-484f-b459-1ffbd69dd436)
 
 
 ## Use
