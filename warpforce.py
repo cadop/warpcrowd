@@ -82,8 +82,8 @@ class WarpCrowd():
         '''
 
         if nagents is None: nagents = self.nagents
-        self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=1, dim_z=self.nagents, device=self.device)
-
+        grid = int(np.sqrt(nagents))
+        self.grid = wp.HashGrid(dim_x=grid, dim_y=1, dim_z=grid, device=self.device)
 
     def config_mesh(self, points, faces):
         '''Create a warp mesh object from points and faces

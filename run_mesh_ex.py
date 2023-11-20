@@ -13,7 +13,7 @@ def run_class():
     points, faces = mesh_utils.load_obj('examples/simple_env.obj')
 
     wc = WarpCrowd()
-    wc.demo_agents(m=100, n=100, s=1.6)
+    wc.demo_agents(m=500, n=500, s=1.6)
     wc.nagents = len(wc.agents_pos)
     wc.configure_params() # Call to setup params for warp, use after defining agents
     wc.config_hashgrid()
