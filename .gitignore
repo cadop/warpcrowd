@@ -6,3 +6,4 @@ warpsf/
 *.pdb
 .vscode/
 venv/
+.venv/
