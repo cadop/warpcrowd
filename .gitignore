@@ -1,4 +1,5 @@
 sfvenv/
+.venv/
 socialforces/
 warpsf/
 *.pyc
@@ -7,3 +8,4 @@ warpsf/
 .vscode/
 venv/
 .venv/
+Collected_simple_env2/

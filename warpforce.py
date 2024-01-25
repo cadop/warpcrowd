@@ -3,20 +3,20 @@
 import numpy as np
 import warp as wp
 import forces as crowd_force
-import pam as pam_force
 
 class WarpCrowd():
     
-    def __init__(self, device='cuda'):
+    def __init__(self, up_axis='y', device='cuda'):
         self.device = device
+        self.up_axis = up_axis
 
         # generate n number of agents
         self.nagents = None
         # set radius
-        self.radius = 0.7
-        self.radius_min = 0.5
-        self.radius_max = 1.0
-        self.hash_radius = 0.7 # Radius to use for hashgrid
+        self.radius = 0.5
+        self.radius_min = 0.4
+        self.radius_max = .65
+        self.hash_radius = 0.5 # Radius to use for hashgrid
         # set mass
         self.mass = 80
         # set pereption radius
@@ -27,22 +27,18 @@ class WarpCrowd():
         self.goal = [0.0,0.0,0.0]
 
         self.up_vec = wp.vec3(0.0,0.0,0.0)
-        self.up_vec[1] = 1.0 # y-up
-        # self.up_vec[2] = 1.0 # z-up
+        self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
         self.forward_vec = wp.vec3(1.0,0.0,0.0)
 
-        self.inv_up_vector = wp.vec3(1.0,1.0,1.0) 
-        # self.inv_up_vector[2] = 0.0 # z-up
+        self.up_vec[1] = 1.0 # y-up
         self.inv_up_vector[1] = 0.0 # y-up
 
     def demo_agents(self, s=1.1, m=50, n=50):
         # Initialize agents in a grid for testing
-        self.agents_pos = np.asarray([
-                                      np.array([(s/2) + (x * s), self.radius_max, (s/2) + (y * s)], dtype=np.double) 
-                                    #   np.array([(s/2) + (x * s), (s/2) + (y * s), self.radius_max], dtype=np.double) 
-                                      for x in range(m) 
-                                      for y in range(n)
-                                    ])
+        self.agents_pos = np.asarray([np.array([(s/2) + (x * s), self.radius_max/2, (s/2) + (y * s)], dtype=np.double) 
+                                    for x in range(m) 
+                                    for y in range(n)])
+
         self.nagents = len(self.agents_pos)
         self.configure_params()
 
@@ -53,7 +49,6 @@ class WarpCrowd():
         '''
 
         self.agents_hdir = np.asarray([np.array([0,0,0,1], dtype=float) for x in range(self.nagents)])
-        # self.agents_pos = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_vel = np.asarray([np.array([0,0,0]) for x in range(self.nagents)])
         self.agents_radi = np.random.uniform(self.radius_min, self.radius_max, self.nagents)
         self.agents_mass = [self.mass for x in range(self.nagents)]
@@ -87,7 +82,8 @@ class WarpCrowd():
         '''
 
         if nagents is None: nagents = self.nagents
-        self.grid = wp.HashGrid(dim_x=self.nagents, dim_y=self.nagents, dim_z=1, device=self.device)
+        grid = int(np.sqrt(nagents))
+        self.grid = wp.HashGrid(dim_x=grid, dim_y=1, dim_z=grid, device=self.device)
 
     def config_mesh(self, points, faces):
         '''Create a warp mesh object from points and faces
@@ -100,10 +96,15 @@ class WarpCrowd():
             A list of integers corresponding to vertices. Must be triangle-based
         '''
         # Init mesh for environment collision
-        self.mesh = wp.Mesh( points=wp.array(points, dtype=wp.vec3, device=self.device),
+        self.mesh = wp.Mesh(points=wp.array(points, dtype=wp.vec3, device=self.device),
                             indices=wp.array(faces, dtype=int ,device=self.device)
                             )
+        
+        points = self.mesh.points.numpy()
+        faces = self.mesh.indices.numpy()
 
+        return points, faces
+    
     def update_goals(self, goal):
         if len(goal) == 1:
             self.agents_goal = np.asarray([np.array(goal[0], dtype=float) for x in range(self.nagents)])

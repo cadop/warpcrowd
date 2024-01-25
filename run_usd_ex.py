@@ -6,49 +6,66 @@ from pxr import Usd
 import usd_utils
 from warpforce import WarpCrowd
 
-# wp.config.mode = "debug"
-# wp.config.print_launches = True
-# wp.config.verify_cuda = True
-
+from warp_utils import NewRenderer
 #### Initialize WARP #####
 wp.init()
 
 def run_class():
 
-    # USD Scene stuff
-    usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "simple_env.usd"))
-    points, faces = usd_utils.get_mesh(usd_stage, objs = ['/World/Plane'])
     stage = os.path.join(os.path.dirname(__file__), "warpcrowd_output.usd")
-    renderer = wp.render.UsdRenderer(stage, upaxis='z')
+    renderer = NewRenderer(stage)
+
+    # USD Scene stuff
+    usd_stage = Usd.Stage.Open(os.path.join(os.path.dirname(__file__), "examples/simple_env.usda"))
+    points, faces = usd_utils.get_all_stage_mesh(usd_stage)
+
 
     wc = WarpCrowd()
-    wc.demo_agents(m=30, n=30)
+    wc.demo_agents(m=100, n=100, s=1.6)
 
     wc.config_hashgrid()
     wc.config_mesh(np.asarray(points), np.asarray(faces))
-    wc.update_goals([-30.8,0.01582,0.0])
+    wc.update_goals([[-80.8,-50.0,0.0]])
 
-    radius = wc.radius
+    radi = wc.agents_radi.flatten()
 
     start = time.time()
     sim_time = 0
-    for i in range(750):
+    num_sim_steps = 1200
+
+    # # Render an initial frame to insert static mesh
+    renderer.begin_frame(0.0)
+    renderer.render_mesh(name="mesh", points=wc.mesh.points.numpy(), indices=wc.mesh.indices.numpy())
+    renderer.end_frame()
+    
+    for i in range(num_sim_steps):
         wc.compute_step()
-        sim_time = render(False, renderer, wc.mesh, wc.xnew_wp, radius, sim_time, wc.dt)
-    print(time.time()-start)
+        heading = wc.agents_hdir_wp.numpy()
+        sim_time = render(False, renderer, wc.mesh, wc.xnew_wp, heading, radi, sim_time, wc.dt)
+    
+    print(f'Computation time of {num_sim_steps} for {len(wc.agents_pos)} agents took: {time.time()-start} seconds, for {((time.time()-start)/num_sim_steps)*1000}ms per step')
     renderer.save()
 
-def render(is_live, renderer, mesh, positions, sim_margin, sim_time, dt):
+def render(is_live, renderer, mesh, positions, headings, sim_margin, sim_time, dt):
     
     with wp.ScopedTimer("render", detailed=False):
         time = 0.0 if is_live else sim_time 
         
         renderer.begin_frame(time)
-        renderer.render_mesh(name="mesh", points=mesh.points.numpy(), indices=mesh.indices.numpy())
-        renderer.render_points(name="points", points=positions.numpy(), radius=sim_margin)
+
+        # Render capsules
+        renderer.render_capsules(name="CapsuleAgent", 
+                                 points=positions.numpy(), 
+                                 radius=sim_margin, 
+                                 half_height=.45, 
+                                 orientations=headings)
+        
+        # Render points, a bit faster than capsules
+        # renderer.render_points(name="points", points=positions.numpy(), radius=sim_margin)
         renderer.end_frame()
 
     sim_time += dt
     return sim_time
+
 
 run_class()

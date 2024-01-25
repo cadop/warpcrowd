@@ -5,39 +5,30 @@ import numpy as np
 import mesh_utils
 from warpforce import WarpCrowd
 
-# wp.config.mode = "debug"
-# wp.config.print_launches = True
-# wp.config.verify_cuda = True
-
 #### Initialize WARP #####
 wp.init()
 
 def run_class():
 
-    points, faces = mesh_utils.load_obj('test.obj')
+    points, faces = mesh_utils.load_obj('examples/simple_env.obj')
 
     wc = WarpCrowd()
-    # Setup Demo Agents using:
-    # wc.demo_agents()
-
-    # Alternatively, specifiy agents directly and call configure_params
-    m,n,s = 30,30,1.1
-    wc.agents_pos = np.asarray([
-                            np.array([(s/2) + (x * s), (s/2) + (y * s), 0], dtype=np.double) 
-                            for x in range(m) 
-                            for y in range(n)
-                           ])
+    wc.demo_agents(m=500, n=500, s=1.6)
     wc.nagents = len(wc.agents_pos)
     wc.configure_params() # Call to setup params for warp, use after defining agents
-
     wc.config_hashgrid()
     wc.config_mesh(np.asarray(points), np.asarray(faces))
-    wc.update_goals([[-30.8,0.01582,0.0]])
+    wc.update_goals([[-80.8,-50.0,0.0]])
 
     start = time.time()
-    for i in range(750):
+    num_sim_steps = 800
+
+    # Run simulation Steps
+    for i in range(num_sim_steps):
         wc.compute_step()
-        p = wc.xnew_wp.numpy()
-    print(time.time()-start)
+        pos = wc.xnew_wp # Get Agent Positions
+
+    print(f'Computation time of {num_sim_steps} for {len(wc.agents_pos)} agents took: \
+          {time.time()-start} seconds, for {((time.time()-start)/num_sim_steps)*1000}ms per step')
 
 run_class()
