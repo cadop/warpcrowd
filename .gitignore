@@ -1,4 +1,12 @@
 sfvenv/
+socialforces/
+warpsf/
+*.pyc
+*.png
+*.pdb
+.vscode/
+venv/
+.venv/sfvenv/
 .venv/
 socialforces/
 warpsf/
@@ -7,5 +15,4 @@ warpsf/
 *.pdb
 .vscode/
 venv/
-.venv/
-Collected_simple_env2/
+Collect
