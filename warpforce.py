@@ -3,6 +3,7 @@
 import numpy as np
 import warp as wp
 import forces as crowd_force
+import pam as pam_force
 
 class WarpCrowd():
     

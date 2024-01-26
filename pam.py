@@ -77,7 +77,7 @@ _dmin = wp.constant( 0.5 + 0.5 + 0.1)
 # *private* the max distance parameters in peicewise personal space function
 _dmax = wp.constant( 4.0 * 7)
 # *private* FOV cosine
-_cosFOV = wp.constant( np.cos((0.5 * np.pi * 200.0) / 180.0))
+_cosFOV = wp.constant(float(np.cos((0.5 * np.pi * 200.0) / 180.0)))
 
 
 
@@ -213,79 +213,89 @@ def calc_goal_force(goal: wp.vec3,
 
 
 @wp.func
-def collision_param(rr_i: wp.vec3, 
-                    vv_i: wp.vec3, 
-                    desired_vel: wp.vec3, 
-                    pn_rr: wp.array(dtype=wp.vec3), 
-                    pn_vv: wp.array(dtype=wp.vec3), 
-                    pn_r: wp.array(dtype=float)
-                    ):
-    
-    # Keep track of if we ever enter a collision state
-    agent_collision = False
-
-    t_pairs = []
-    # Handle agents tc values for predictive forces among neighbours
-    for j, rr_j in enumerate(pn_rr):
-        #  Get position and velocity of neighbor agent
-        vv_j = pn_vv[j]
-
-        #  Get radii of neighbor agent
-        rj = pn_r[j]
-        
-        combined_radius = _agent_personal_space + rj
-        
-        w = rr_j - rr_i 
-        if (wp.length(w) < combined_radius):
-            agent_collision = True
-            t_pairs.append((0.0, j))
-        else:
-            rel_dir = wp.normalize(w)
-            if wp.dot(rel_dir, wp.normalize(vv_i)) < _cosFOV:
-                continue
-                
-            tc = ray_intersects_disc(rr_i, rr_j, desired_vel - vv_j, combined_radius)
-            if tc < time_horizon:
-                if len(t_pairs) < max_neighbors:
-                    t_pairs.append((tc, j))
-                elif tc < t_pairs[0][0]:
-                    t_pairs.pop()
-                    t_pairs.append((tc, j))
-
-    return t_pairs, agent_collision
-
-@wp.func
 def predictive_force(rr_i: wp.vec3, 
                      desired_vel: wp.vec3, 
                      desired_speed: float, 
                      pn_rr: wp.array(dtype=wp.vec3), 
                      pn_vv: wp.array(dtype=wp.vec3), 
                      pn_r: wp.array(dtype=float),
-                     vv_i: wp.vec3
+                     vv_i: wp.vec3,
+                     pn: float,
+                     grid : wp.uint64,
                      ):
+    '''
+    For now, we don't use a max_neighbor, or we don't care about real distances
     
+    So solve in future by either having an array (or two) that can replicate a queue
+    with pop() so that new values of ray_intersects_disc can be compared
+    
+    or do some pre-sorting that will allow max_neighbor to cutoff without wrong distances
+    which would also mean just ending the force calculation on that iteration    
+    
+    '''
     # Handle predictive forces// Predictive forces
 
-    # Setup collision parameters
-    t_pairs, agent_collision = collision_param(rr_i, vv_i, desired_vel, pn_rr, pn_vv, pn_r)
-
-    # This will be all the other forces, added in a particular way
+    # Keep track of if we ever enter a collision state
+    agent_collision = bool(False)
+    
     steering_force = wp.vec3(0.0,0.0,0.0)
-
     # will store a list of tuples, each tuple is (tc, agent)
-    force_count = 0
+    force_count = float(0.0)
+    
+    # create grid query around point
+    query = wp.hash_grid_query(grid, rr_i, pn)
+    index = int(0)
 
-    for t_pair in t_pairs:
-        # Nice variables from the t_pair tuples
-        t = t_pair[0]
-        agent_idx = t_pair[1]
+    for index in query:
+        j = index
+        neighbor = pn_rr[j]
+        rr_j = neighbor
         
-        force_dir = rr_i + (desired_vel * t) - pn_rr[agent_idx] - (pn_vv[agent_idx] * t)
+        vv_j = pn_vv[j]
+        
+        #  Get radii of neighbor agent
+        rj = pn_r[j]
+        
+        combined_radius = _agent_personal_space + rj
+        
+        # compute distance to neighbor point
+        w = rr_i-neighbor
+        dist = wp.length(w)
+        if (dist <= pn):
+            agent_collision = True
+            t = 0.0
+        else:
+            rel_dir = wp.normalize(w)
+            _vnorm = wp.normalize(vv_i)
+            _res = wp.dot(rel_dir, _vnorm)
+
+            if _res < _cosFOV:
+                continue
+                
+            tc = ray_intersects_disc(rr_i, rr_j, desired_vel - vv_j, combined_radius)
+            if tc < time_horizon:
+                if tc < t:
+                    t = tc
+                else:
+                    continue
+                            
+                ## Later this can be used for max_neighbors
+                # if num_neighbors < max_neighbors:
+                #     t = tc
+                # elif tc < t:
+                #     t.pop()
+                #     t.append((tc, j))
+
+            # if tc is not within time horizon we continue
+            else:
+                continue 
+
+        force_dir = rr_i + (desired_vel * t) - pn_rr[j] - (pn_vv[j] * t)
         force_dist = wp.length(force_dir)
         if force_dist > 0:
-            force_dir =  force_dir / force_dist # @TODO check this is the right order
+            force_dir =  force_dir / force_dist 
             
-        collision_dist = wp.max(force_dist - agent_radius - pn_r[agent_idx], 0.0)
+        collision_dist = wp.max(force_dist - agent_radius - pn_r[j], 0.0)
         
         #D = input to evasive force magnitude piecewise function
         D = wp.max( (desired_speed * t) + collision_dist, 0.001)
@@ -301,13 +311,11 @@ def predictive_force(rr_i: wp.vec3,
             continue
 
         if agent_collision: 
-            force_mag = wp.pow(1, force_count) * force_mag
+            force_mag = wp.pow(1.0, force_count) * force_mag
         else:
             force_mag = wp.pow(w_factor, force_count) * force_mag
-
-        # force_mag *= np.power( (1.0 if agent_collision else w_factor), force_count)
         
-        force_count += 1
+        force_count += 1.0
         steering_force = force_mag * force_dir
 
     return steering_force
@@ -357,7 +365,7 @@ def compute_force(rr_i: wp.vec3,
 
     steering_force = wp.vec3(0.0,0.0,0.0)
     # Get predictive steering forces
-    steering_force = predictive_force(rr_i, desired_vel, desired_speed, pn_rr, pn_vv, pn_r, vv_i)
+    steering_force = predictive_force(rr_i, desired_vel, desired_speed, pn_rr, pn_vv, pn_r, vv_i, pn, grid)
 
     # # Add noise for reducing deadlocks adding naturalness
     # if noise:
