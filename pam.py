@@ -192,7 +192,9 @@ def calc_wall_force(rr_i: wp.vec3,
     max_dist = SAFE
     # max_dist = float(ri * 5.0)
 
-    # TODO should be in a loop for all meshes?
+
+    # TODO should probably be in a loop for all obstacles
+    # mesh_query_point_no_sign, mesh_query_aabb, mesh_query_aabb_next, mesh_query_ray
 
     has_point = wp.mesh_query_point(mesh, rr_i, max_dist, sign, face_index, face_u, face_v)
 
