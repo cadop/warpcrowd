@@ -7,10 +7,20 @@
 
 from dataclasses import dataclass
 import numpy as np
-from scipy.spatial import distance
 import warp as wp
 
 # @TODO move to wp.struct
+
+# @TODO check if these overlap with the PAM parameters
+Tau = wp.constant(0.5) # s (acceleration)
+A = wp.constant(2000.0) # N
+B = wp.constant(0.08) # m
+kn = wp.constant(1.2 * 100000) # kg/s^-2
+kt = wp.constant(2.4 * 100000) # kg/m^-1 s^-2
+
+# max_speed = wp.constant(10.0) # m/s
+# v_desired = wp.constant(2.5) # m/s
+
 
 # The agents field of view
 field_of_view = wp.constant( 200.0)
@@ -47,8 +57,10 @@ agent_strength = wp.constant( 1.0)
 # wFactor, factor to progressively scale down forces in when in a non-collision state
 w_factor = wp.constant( 0.8)
 # Noise flag (should noise be added to the movement action)
-noise = wp.constant( False )
+# noise = wp.constant( False )
+noise = wp.constant( True )
 force_clamp = wp.constant( 40.0)
+
 
 ## @TODO fix these constants
 
@@ -147,56 +159,94 @@ def ray_intersects_disc(pi: wp.vec3,
     
     return t
 
-def mag(v):
-    # calc magnitude of vector
-    v_mag = np.sqrt(v.dot(v))
-    return v_mag 
 
-def norm(v):
-    # normalize a vector
-    v_norm = np.array([0, 0, 0], dtype='float64')
-    magnitude = mag(v)
-    if magnitude > 0.0:
-        v_norm = v / magnitude
-    return v_norm
+@wp.func
+def G(r_ij: float, 
+      d_ij: float
+      ):
+    # g(x) is a function that returns zero if pedestrians touch
+    # otherwise is equal to the argument x 
+    if (d_ij > r_ij): return 0.0
+    return r_ij - d_ij
+@wp.func
+def calc_wall_force(rr_i: wp.vec3, 
+                ri: float,
+                vv_i: wp.vec3,
+                mesh: wp.uint64):
+    '''
+    @TODO check if this is right, seems a bit different than the SF method
+    Can we skip the iteration on obstacles and just go for the closest?
+    '''
+    
 
-def get_neighbors(cur, 
-                  agents, 
-                  pn_r):
-    dist = distance.cdist([cur], agents)
-    pn = dist < pn_r
-    # Index to remove is when its zero
-    pn_self = dist == 0
-    pn_self = np.nonzero(pn_self)
-    pn[pn_self] = False
+    face_index = int(0)
+    face_u = float(0.0)
+    face_v = float(0.0)
+    sign = float(0.0)
+    
+    obstacle_force = wp.vec3(0.0,0.0,0.0)
+    # Define the up direction 
+    up_dir = wp.vec3(0.0, 0.0, 1.0)
+    SAFE =  _ideal_wall_dist * _ideal_wall_dist
 
-    pn = np.nonzero(pn)
-    return pn
+    max_dist = SAFE
+    # max_dist = float(ri * 5.0)
+
+    # TODO should be in a loop for all meshes?
+
+    has_point = wp.mesh_query_point(mesh, rr_i, max_dist, sign, face_index, face_u, face_v)
+
+    if (not has_point):
+        return wp.vec3(0.0, 0.0, 0.0)
+
+    p = wp.mesh_eval_position(mesh, face_index, face_u, face_v)
 
 
-def wall_force(obstacles, 
-               rr_i, 
-               closest_point, 
-               SAFE, 
-               add_force):
+    n_w = p - rr_i # distance to wall W
+    # magnitude squared
+    d_w = wp.length(n_w) * wp.length(n_w)
 
-    for i in range(len(obstacles)):
-        # Step 1: get closest point on obstacle to agent
-        # [[ Need python code for this in simulation ]]
-        
-        n_w = rr_i - closest_point
-        d_w = mag(n_w) * mag(n_w)
+    # Check if this new value is less than distance
+    if (not d_w < SAFE): 
+        return wp.vec3(0.0, 0.0, 0.0)
 
-        if (d_w < SAFE):
-            d_w = np.sqrt(d_w)
-            if (d_w > 0):
-                n_w /= d_w
-            if ((d_w - Parameters.agent_radius) < 0.001):
-                dist_min_radius =  0.001
-            else: 
-                d_w - Parameters.agent_radius
-            obstacle_force = (Parameters._ideal_wall_dist - d_w) / np.pow(dist_min_radius, Parameters.wall_steepness) * n_w
-            add_force(obstacle_force)
+    d_w = wp.sqrt(d_w)
+    if (d_w > 0):
+        n_w = n_w/ d_w
+
+    if ((d_w - ri) < 0.001):
+        dist_min_radius =  0.001
+    else: 
+        d_w - ri
+
+    dr_ws = wp.pow(dist_min_radius, wall_steepness)
+
+    # TODO this is not accounting for small triangles with different directions
+    obstacle_force = (_ideal_wall_dist - d_w) / dr_ws * n_w
+
+    # TODO the above should be in a loop for all obstacles, get all triangles within dist, 
+    #   check if tri is visible (ray)
+    # add_force(obstacle_force)
+
+    # Used this for SF model
+    # # vector of the wall to the agent
+    # nn_iw = wp.normalize(rr_i - p)
+    # # perpendicular vector of the agent-wall (tangent force)
+    # tt_iw = wp.cross(up_dir, nn_iw)
+    # if wp.dot(vv_i, tt_iw) < 0.0: 
+    #     tt_iw = -1.0 * tt_iw
+
+    # # Compute force
+    # #  f_iW = { A * exp[(ri-diw)/B] + kn*g(ri-diw) } * niw 
+    # #   - kt * g(ri-diw)(vi * tiw)tiw
+    # f_rep = ( A * wp.exp((ri-d_iw)/B) + kn * G(ri, d_iw) ) * nn_iw 
+    # f_tan = kt * G(ri,d_iw) * wp.dot(vv_i, tt_iw) * tt_iw
+    # force = f_rep - f_tan
+
+    # return force 
+
+    return obstacle_force
+
     
 @wp.func
 def calc_goal_force(goal: wp.vec3, 
@@ -320,10 +370,13 @@ def predictive_force(rr_i: wp.vec3,
 
     return steering_force
 
-def add_noise(steering_force):
-    angle = np.random.uniform(0.0, 1.0) * 2.0 * np.pi
-    dist = np.random.uniform(0.0, 1.0) * 0.001
-    steering_force += dist * np.array([np.cos(angle),np.sin(angle),0], dtype='float64')
+@wp.func
+def add_noise(steering_force: wp.vec3):
+    state = wp.rand_init(1)
+    angle = wp.randf(state) * 2.0 * wp.pi
+    dist = wp.randf(state) * 0.001
+    _angles = wp.vec3f(wp.cos(angle), wp.sin(angle), 0.0)
+    steering_force += dist * _angles
 
     return steering_force
 
@@ -361,18 +414,18 @@ def compute_force(rr_i: wp.vec3,
     # Get obstacle (wall) forces
     obstacle_force = wp.vec3(0.0,0.0,0.0)
     #@TODO 
-    # obstacle_force = wall_force()
+    obstacle_force = calc_wall_force(rr_i, ri, vv_i, mesh)
 
     steering_force = wp.vec3(0.0,0.0,0.0)
     # Get predictive steering forces
     steering_force = predictive_force(rr_i, desired_vel, desired_speed, pn_rr, pn_vv, pn_r, vv_i, pn, grid)
 
     # # Add noise for reducing deadlocks adding naturalness
-    # if noise:
-    #     steering_force = add_noise(steering_force)
+    if noise:
+        steering_force = add_noise(steering_force)
 
     # # Clamp driving force
-    # if mag(steering_force) > force_clamp:
-    #     steering_force = norm(steering_force) *  force_clamp
+    if wp.length(steering_force) > force_clamp:
+        steering_force = wp.normalize(steering_force) *  force_clamp
     
     return goal_force + obstacle_force + steering_force
