@@ -19,3 +19,18 @@ The main point of these two statements is to put into context the performance of
 - `numpy`
 - `usd-core` (for USD environments)
 - `pywavefront` (only needed if dealing with meshes like .obj)
+
+
+# Citing
+If you find this repo useful, please cite as:
+
+```bibtex
+@misc{warpcrowd2023,
+title= {Warpcrowd: GPU Accelerated Crowd Simulation},
+author = {Mathew Schwartz},
+month = {January},
+year = {2023},
+note= {},
+howpublished = {\url{https://github.com/cadop/warpcrowd}}
+}
+```
