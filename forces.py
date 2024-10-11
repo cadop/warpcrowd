@@ -89,6 +89,20 @@ def heading(v : wp.array(dtype=wp.vec3),
 
     hdir[tid] = velocity_to_quaternion(up, forward, vnorm)
 
+@wp.kernel
+def goal_distance(goal : wp.array(dtype=wp.vec3), 
+                  pos : wp.array(dtype=wp.vec3), 
+                  t : float, 
+                  goal_idx : wp.array(dtype=wp.int16)):
+    
+    tid = wp.tid()
+    if goal_idx[tid] == -1:
+        return
+
+    d = wp.length(goal[tid] - pos[tid])
+    if d < t:
+        goal_idx[tid] += 1
+
 
 @wp.func
 def velocity_to_quaternion(up : wp.vec3, 
@@ -117,7 +131,7 @@ def velocity_to_quaternion(up : wp.vec3,
         qz = wp.sin(angle/2.0) * axis[2]  # Calculate the vector component of the quaternion
         
         return wp.vec4(qx, qy, qz, qw)
-    
+
 @wp.func
 def calc_goal_force(goal: wp.vec3, 
                     pos: wp.vec3, 

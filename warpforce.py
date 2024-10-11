@@ -24,6 +24,7 @@ class WarpCrowd():
         self.perception_radius = 6
 
         self.dt = 1.0/30.0
+        self.threshold = 0.5 # Distance from goal to switch to new one
 
         self.goal = [0.0,0.0,0.0]
 
@@ -55,6 +56,8 @@ class WarpCrowd():
         self.agents_mass = [self.mass for x in range(self.nagents)]
         self.agents_percept = np.asarray([self.perception_radius for x in range(self.nagents)])
         self.agents_goal = np.asarray([np.array(self.goal, dtype=float) for x in range(self.nagents)])
+        
+        self.goal_idx = np.zeros(self.nagents, dtype=int)
 
         self.xnew = np.zeros_like(self.agents_pos)
         self.vnew = np.zeros_like(self.agents_vel) 
@@ -151,6 +154,14 @@ class WarpCrowd():
 
         self.agents_hdir_wp = self.hdir_wp
 
+        # See if agent is ready for the next goal
+        wp.launch(kernel=crowd_force.goal_distance,
+                  dim=self.nagents,
+                  inputs=[self.agents_goal, self.agents_pos_wp, self.threshold],
+                  outputs=[self.goal_idx],
+                device=self.device
+                )
+
 
     def model_pam(self):
 
@@ -183,3 +194,4 @@ class WarpCrowd():
                 )
 
         self.agents_hdir_wp = self.hdir_wp
+
