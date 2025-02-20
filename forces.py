@@ -93,7 +93,7 @@ def heading(v : wp.array(dtype=wp.vec3),
 def goal_distance(goal : wp.array(dtype=wp.vec3), 
                   pos : wp.array(dtype=wp.vec3), 
                   t : float, 
-                  goal_idx : wp.array(dtype=wp.int16)):
+                  goal_idx : wp.array(dtype=wp.int32)):
     
     tid = wp.tid()
     if goal_idx[tid] == -1:
